@@ -3,6 +3,7 @@ from flask_cors import CORS
 from flask_caching import Cache
 import sqlite3
 import os
+from audit_parser import parse_pdf, summarize  # new import for audit parsing
 
 app = Flask(__name__)
 CORS(app, resources={r"/api/*": {"origins": "*"}})  # Allow all origins for development
@@ -179,6 +180,53 @@ def get_major_requirements(major_id):
 
     conn.close()
     return jsonify(result)
+
+# --- Audit Upload & Parsing Endpoint ---
+@app.route('/api/audit/upload', methods=['POST'])
+def upload_audit():
+    """Upload a degree audit PDF and auto-extract completed/in-progress courses.
+
+    Expects multipart/form-data with fields:
+      - file: PDF audit
+      - majorId (optional): to compute remaining requirements
+    Returns JSON with detected course sets and (if majorId provided) remaining courses.
+    """
+    if 'file' not in request.files:
+        return jsonify({'error': 'Missing file field'}), 400
+    pdf_file = request.files['file']
+    if not pdf_file.filename.lower().endswith('.pdf'):
+        return jsonify({'error': 'File must be a PDF'}), 400
+
+    file_bytes = pdf_file.read()
+    try:
+        parsed = parse_pdf(file_bytes)
+    except Exception as e:
+        return jsonify({'error': f'Failed to parse PDF: {e}'}), 500
+
+    major_id = request.form.get('majorId') or request.args.get('majorId')
+    remaining_summary = None
+    if major_id:
+        try:
+            mid = int(major_id)
+            conn = get_db_connection()
+            cursor = conn.cursor()
+            # Required
+            cursor.execute('SELECT course_code FROM major_requirements WHERE major_id = ?', (mid,))
+            required_rows = cursor.fetchall()
+            required_codes = {r['course_code'] for r in required_rows}
+            # Electives
+            cursor.execute('SELECT course_code FROM major_electives WHERE major_id = ?', (mid,))
+            elective_rows = cursor.fetchall()
+            elective_codes = {r['course_code'] for r in elective_rows}
+            conn.close()
+            remaining_summary = summarize(parsed, required_codes, elective_codes)
+        except Exception as e:
+            remaining_summary = {'error': f'Failed to compute remaining requirements: {e}'}
+
+    return jsonify({
+        'parsed': {k: sorted(list(v)) for k, v in parsed.items()},
+        'summary': remaining_summary
+    })
 
 # Get all courses with their prerequisites
 @app.route('/api/courses', methods=['GET'])

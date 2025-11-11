@@ -9,6 +9,7 @@ import OnboardingSection from "./components/OnboardingSection";
 import MajorSelection from "./components/MajorSelection";
 import DiagnosticPanel from "./components/DiagnosticPanel";
 import RequiredCoursesChecklist from "./components/RequiredCoursesChecklist";
+import UploadAudit from "./components/UploadAudit";
 import { useDebounce } from "./hooks/useDebounce";
 
 const API_URL = import.meta.env.VITE_API_URL || "/api";
@@ -336,6 +337,21 @@ export default function App() {
                     isCollapsed={onboardingCollapsed}
                     setIsCollapsed={setOnboardingCollapsed}
                   />
+                  {/* New audit upload option */}
+                  {!onboardingCollapsed && selectedMajor && (
+                    <div className="mt-6">
+                      <UploadAudit
+                        majorId={selectedMajor.id}
+                        onApply={(completedSet, inProgressSet) => {
+                          setCompletedCourses(completedSet);
+                          setInProgressCourses(inProgressSet);
+                          setOnboardingCollapsed(true);
+                          setInProgressSelectionCollapsed(true);
+                          setSkippedPlanning(false);
+                        }}
+                      />
+                    </div>
+                  )}
 
                   {/* New In-Progress Selection Section */}
                   {onboardingCollapsed && completedCourses !== null && (
