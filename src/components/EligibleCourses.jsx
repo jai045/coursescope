@@ -5,7 +5,8 @@ import { ChevronDown, ChevronRight } from "lucide-react";
 const EligibleCourses = ({ courses, allCourses, requiredCourses, electiveCourses, onAdd, onOpenDetail, onOpenGrades, skippedPlanning = false }) => {
   const [requiredExpanded, setRequiredExpanded] = useState(false);
   const [electivesExpanded, setElectivesExpanded] = useState(false);
-  const [otherExpanded, setOtherExpanded] = useState(false);
+  // When user skips planning, open the "All Courses" section by default
+  const [otherExpanded, setOtherExpanded] = useState(skippedPlanning);
   const [showAllOther, setShowAllOther] = useState(false);
 
   // Create sets of course codes for quick lookup
