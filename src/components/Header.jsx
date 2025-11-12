@@ -1,7 +1,14 @@
 import { motion } from "framer-motion";
 import icon from "../assets/icon.png";
+import { supabase } from "../lib/supabaseClient";
 
-const Header = ({ onChangeMajor, selectedMajor }) => (
+const Header = ({ onChangeMajor, selectedMajor, onAuthOpen, user }) => {
+  const handleSignOut = async () => {
+    await supabase.auth.signOut();
+    window.location.reload();
+  };
+
+  return (
   <header className="sticky top-0 z-40 bg-white/80 backdrop-blur border-b">
     <div className="mx-auto max-w-6xl px-4 py-3 flex items-center justify-between">
       <a href="/" className="flex items-center gap-2 group" aria-label="Go to home">
@@ -71,10 +78,22 @@ const Header = ({ onChangeMajor, selectedMajor }) => (
             <span className="relative z-10">Change Major</span>
           </button>
         )}
+        {user ? (
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-gray-600">{user.email}</span>
+            <button onClick={handleSignOut} className="text-xs px-3 py-1.5 rounded-lg border hover:border-gray-300">Sign out</button>
+          </div>
+        ) : (
+          <div className="flex items-center gap-2">
+            <button onClick={() => onAuthOpen("login")} className="text-xs px-3 py-1.5 rounded-lg border hover:border-gray-300">Log in</button>
+            <button onClick={() => onAuthOpen("signup")} className="text-xs px-3 py-1.5 rounded-lg border hover:border-gray-300">Sign up</button>
+          </div>
+        )}
         <span className="text-xs text-gray-500">MVP · Unified course planning</span>
       </div>
     </div>
   </header>
-);
+  );
+};
 
 export default Header;

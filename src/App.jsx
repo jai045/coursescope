@@ -1,6 +1,8 @@
-import { useMemo, useState, useEffect } from "react";
+import { useMemo, useState, useEffect, useRef } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import Header from "./components/Header";
+import AuthModal from "./components/AuthModal";
+import { supabase } from "./lib/supabaseClient";
 import FilterBar from "./components/FilterBar";
 import EligibleCourses from "./components/EligibleCourses";
 import PlanSummary from "./components/PlanSummary";
@@ -11,6 +13,7 @@ import DiagnosticPanel from "./components/DiagnosticPanel";
 import RequiredCoursesChecklist from "./components/RequiredCoursesChecklist";
 import UploadAudit from "./components/UploadAudit";
 import { useDebounce } from "./hooks/useDebounce";
+import { loadUserState, saveUserState } from "./lib/userState";
 
 const API_URL = import.meta.env.VITE_API_URL || "/api";
 
@@ -36,14 +39,93 @@ export default function App() {
   const [detailOpen, setDetailOpen] = useState(false);
   const [gradesOpen, setGradesOpen] = useState(false);
   const [activeCourse, setActiveCourse] = useState(null);
+  // Auth state
+  const [user, setUser] = useState(null);
+  const [authOpen, setAuthOpen] = useState(false);
+  const [authMode, setAuthMode] = useState("login");
 
   // Debounce search input to reduce filtering overhead
   const debouncedSearch = useDebounce(search, 300);
+  const saveTimerRef = useRef(null);
 
   // Fetch all courses from API on mount
   useEffect(() => {
     fetchCourses();
   }, []);
+
+  // Initialize Supabase auth session and subscribe to changes
+  useEffect(() => {
+    let mounted = true;
+    (async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (mounted) {
+        setUser(session?.user || null);
+        if (session?.user) {
+          try {
+            const state = await loadUserState(session.user.id);
+            if (state) {
+              if (state.selected_major) {
+                // Avoid double fetch if already selected
+                await handleMajorSelect(state.selected_major);
+              }
+              setCompletedCourses(new Set(state.completed_courses || []));
+              setInProgressCourses(new Set(state.in_progress_courses || []));
+            }
+          } catch (e) {
+            console.warn("Failed to load user state:", e.message);
+          }
+        }
+      }
+    })();
+    const { data: listener } = supabase.auth.onAuthStateChange(async (_event, session) => {
+      setUser(session?.user || null);
+      if (session?.user) {
+        try {
+          const state = await loadUserState(session.user.id);
+          if (state) {
+            if (state.selected_major) {
+              await handleMajorSelect(state.selected_major);
+            } else {
+              setSelectedMajor(null);
+              setMajorConfirmed(false);
+            }
+            setCompletedCourses(new Set(state.completed_courses || []));
+            setInProgressCourses(new Set(state.in_progress_courses || []));
+          } else {
+            // Fresh user state
+            setCompletedCourses(null);
+            setInProgressCourses(null);
+          }
+        } catch (e) {
+          console.warn("Failed to load user state (auth change):", e.message);
+        }
+      } else {
+        // Signed out: clear ephemeral planning state
+        setSelectedMajor(null);
+        setMajorConfirmed(false);
+        setCompletedCourses(null);
+        setInProgressCourses(null);
+      }
+    });
+    return () => {
+      mounted = false;
+      listener.subscription.unsubscribe();
+    };
+  }, []);
+
+  // Debounced persistence of critical planning state
+  useEffect(() => {
+    if (!user) return; // only persist when authenticated
+    if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+    saveTimerRef.current = setTimeout(() => {
+      saveUserState(user.id, {
+        selectedMajor,
+        completedCourses,
+        inProgressCourses,
+      }).catch(e => console.warn('Persist user state failed:', e.message));
+    }, 800); // slight delay to batch rapid changes
+    return () => saveTimerRef.current && clearTimeout(saveTimerRef.current);
+  }, [user, selectedMajor, completedCourses, inProgressCourses]);
 
   // Collapse sidebar when entering edit mode (onboarding expanded)
   useEffect(() => {
@@ -270,7 +352,12 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-gray-50 text-gray-900">
-      <Header onChangeMajor={majorConfirmed ? handleChangeMajor : null} selectedMajor={selectedMajor} />
+      <Header
+        onChangeMajor={majorConfirmed ? handleChangeMajor : null}
+        selectedMajor={selectedMajor}
+        user={user}
+        onAuthOpen={(mode) => { setAuthMode(mode); setAuthOpen(true); }}
+      />
       
       {loading ? (
         <main className="mx-auto max-w-6xl px-4 py-6 md:py-8">
@@ -513,6 +600,7 @@ export default function App() {
         open={gradesOpen}
         onClose={() => setGradesOpen(false)}
       />
+      <AuthModal isOpen={authOpen} mode={authMode} setMode={setAuthMode} onClose={() => setAuthOpen(false)} onSuccess={(u)=>{setUser(u);}} />
       
       <DiagnosticPanel 
         completedCourses={completedCourses}
