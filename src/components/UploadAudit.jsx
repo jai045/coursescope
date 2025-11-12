@@ -71,7 +71,7 @@ export default function UploadAudit({ majorId, onApply }) {
         >
           {loading ? "Parsing..." : "Parse Audit"}
         </button>
-        {result?.summary && (
+        {result && (
           <button
             onClick={applySets}
             className="px-3 py-1.5 rounded-lg border text-xs font-medium bg-black text-white hover:bg-gray-800"

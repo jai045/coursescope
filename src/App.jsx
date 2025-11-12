@@ -293,30 +293,40 @@ export default function App() {
           </div>
         </main>
       ) : !majorConfirmed ? (
-        <main className="mx-auto max-w-6xl px-4 py-6 md:py-8">
-          <div className="grid gap-8 lg:grid-cols-2 items-start">
-            <div className="space-y-6">
-              <MajorSelection onSelectMajor={handleMajorSelect} selectedMajor={selectedMajor} onSkipPlanning={handleSkipPlanning} />
-            </div>
-            <div className="space-y-4">
-              <div className="bg-white border rounded-2xl p-5 shadow-sm">
-                <h2 className="text-lg font-semibold mb-2">Or Import Your Degree Audit</h2>
-                <p className="text-sm text-gray-600 mb-4">Upload your official audit PDF to auto-detect completed and in-progress courses. You can select a major first for remaining requirements, or upload now and choose a major later.</p>
-                <UploadAudit
-                  onApply={(completedSet, inProgressSet) => {
-                    setCompletedCourses(completedSet);
-                    setInProgressCourses(inProgressSet);
-                    setMajorConfirmed(true); // proceed to planner flow
-                    setOnboardingCollapsed(true);
-                    setInProgressSelectionCollapsed(true);
-                    setSkippedPlanning(false);
-                  }}
-                />
-                {!selectedMajor && (
-                  <p className="mt-3 text-xs text-gray-500">Select a major first if you’d like remaining requirement calculations.</p>
-                )}
-              </div>
-            </div>
+        <main className="mx-auto max-w-3xl px-4 py-6 md:py-10 space-y-6">
+          {/* 1) Skip Planning */}
+          <div className="bg-white border rounded-2xl p-5 shadow-sm">
+            <h2 className="text-lg font-semibold mb-2">Skip Planning</h2>
+            <p className="text-sm text-gray-600 mb-4">Jump straight into browsing all courses. You can always come back to import your audit or pick a major later.</p>
+            <button
+              onClick={handleSkipPlanning}
+              className="px-4 py-2 rounded-lg bg-gray-900 text-white text-sm hover:bg-black"
+            >
+              Skip and Explore Courses
+            </button>
+          </div>
+
+          {/* 2) Upload PDF */}
+          <div className="bg-white border rounded-2xl p-5 shadow-sm">
+            <h2 className="text-lg font-semibold mb-2">Upload Degree Audit (PDF)</h2>
+            <p className="text-sm text-gray-600 mb-4">We’ll auto-detect completed and in-progress courses. If you select a major after, you’ll also see remaining requirements.</p>
+            <UploadAudit
+              onApply={(completedSet, inProgressSet) => {
+                setCompletedCourses(completedSet);
+                setInProgressCourses(inProgressSet);
+                setMajorConfirmed(true);
+                setOnboardingCollapsed(true);
+                setInProgressSelectionCollapsed(true);
+                setSkippedPlanning(false);
+              }}
+            />
+          </div>
+
+          {/* 3) Choose a Major */}
+          <div className="bg-white border rounded-2xl p-5 shadow-sm">
+            <h2 className="text-lg font-semibold mb-2">Choose Your Major</h2>
+            <p className="text-sm text-gray-600 mb-4">Pick a major to see required courses, electives, and track progress.</p>
+            <MajorSelection onSelectMajor={handleMajorSelect} selectedMajor={selectedMajor} onSkipPlanning={handleSkipPlanning} />
           </div>
         </main>
       ) : (
