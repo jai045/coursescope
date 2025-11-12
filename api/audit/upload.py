@@ -2,51 +2,77 @@ from http.server import BaseHTTPRequestHandler
 import json
 import sys
 import os
-from urllib.parse import parse_qs
 
 # Add parent directory to path to import audit_parser
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 
-from audit_parser import parse_pdf, summarize
-from _db import get_db_connection
+try:
+    from audit_parser import parse_pdf, summarize
+    from _db import get_db_connection
+    IMPORTS_OK = True
+except Exception as import_error:
+    IMPORTS_OK = False
+    IMPORT_ERROR = str(import_error)
 
 def parse_multipart(data, boundary):
     """Simple multipart form data parser"""
-    parts = data.split(boundary.encode())
-    result = {}
-    
-    for part in parts:
-        if not part or part == b'--\r\n' or part == b'--':
-            continue
-            
-        # Find the double newline that separates headers from content
-        if b'\r\n\r\n' in part:
-            headers, content = part.split(b'\r\n\r\n', 1)
-            # Remove trailing \r\n
-            content = content.rstrip(b'\r\n')
-            
-            # Parse Content-Disposition header
-            for line in headers.split(b'\r\n'):
-                if line.startswith(b'Content-Disposition:'):
-                    # Extract field name
-                    if b'name="' in line:
-                        name_start = line.find(b'name="') + 6
-                        name_end = line.find(b'"', name_start)
-                        field_name = line[name_start:name_end].decode()
-                        
-                        # Check if it's a file
-                        if b'filename="' in line:
-                            result[field_name] = {'content': content, 'is_file': True}
-                        else:
-                            result[field_name] = {'content': content.decode(), 'is_file': False}
-    
-    return result
+    try:
+        parts = data.split(boundary.encode())
+        result = {}
+        
+        for part in parts:
+            if not part or part == b'--\r\n' or part == b'--':
+                continue
+                
+            # Find the double newline that separates headers from content
+            if b'\r\n\r\n' in part:
+                headers, content = part.split(b'\r\n\r\n', 1)
+                # Remove trailing \r\n
+                content = content.rstrip(b'\r\n')
+                
+                # Parse Content-Disposition header
+                for line in headers.split(b'\r\n'):
+                    if line.startswith(b'Content-Disposition:'):
+                        # Extract field name
+                        if b'name="' in line:
+                            name_start = line.find(b'name="') + 6
+                            name_end = line.find(b'"', name_start)
+                            field_name = line[name_start:name_end].decode()
+                            
+                            # Check if it's a file
+                            if b'filename="' in line:
+                                result[field_name] = {'content': content, 'is_file': True}
+                            else:
+                                result[field_name] = {'content': content.decode(), 'is_file': False}
+        
+        return result
+    except Exception as e:
+        raise Exception(f"Multipart parsing failed: {str(e)}")
 
 class handler(BaseHTTPRequestHandler):
     def do_POST(self):
         try:
+            # Check if imports worked
+            if not IMPORTS_OK:
+                self.send_response(500)
+                self.send_header('Content-Type', 'application/json')
+                self.send_header('Access-Control-Allow-Origin', '*')
+                self.end_headers()
+                self.wfile.write(json.dumps({'error': f'Import error: {IMPORT_ERROR}'}).encode())
+                return
+            
             content_length = int(self.headers.get('Content-Length', 0))
             content_type = self.headers.get('Content-Type', '')
+            
+            # Check content length limit (10MB for Vercel)
+            MAX_SIZE = 10 * 1024 * 1024  # 10MB
+            if content_length > MAX_SIZE:
+                self.send_response(413)
+                self.send_header('Content-Type', 'application/json')
+                self.send_header('Access-Control-Allow-Origin', '*')
+                self.end_headers()
+                self.wfile.write(json.dumps({'error': 'File too large (max 10MB)'}).encode())
+                return
             
             if not content_type.startswith('multipart/form-data'):
                 self.send_response(400)
@@ -68,14 +94,30 @@ class handler(BaseHTTPRequestHandler):
                 self.send_header('Content-Type', 'application/json')
                 self.send_header('Access-Control-Allow-Origin', '*')
                 self.end_headers()
-                self.wfile.write(json.dumps({'error': 'No boundary found'}).encode())
+                self.wfile.write(json.dumps({'error': 'No boundary found in Content-Type'}).encode())
                 return
             
             # Read the body
-            body = self.rfile.read(content_length)
+            try:
+                body = self.rfile.read(content_length)
+            except Exception as e:
+                self.send_response(500)
+                self.send_header('Content-Type', 'application/json')
+                self.send_header('Access-Control-Allow-Origin', '*')
+                self.end_headers()
+                self.wfile.write(json.dumps({'error': f'Failed to read request body: {str(e)}'}).encode())
+                return
             
             # Parse multipart data
-            form_data = parse_multipart(body, boundary)
+            try:
+                form_data = parse_multipart(body, boundary)
+            except Exception as e:
+                self.send_response(400)
+                self.send_header('Content-Type', 'application/json')
+                self.send_header('Access-Control-Allow-Origin', '*')
+                self.end_headers()
+                self.wfile.write(json.dumps({'error': f'Failed to parse form data: {str(e)}'}).encode())
+                return
             
             # Get file
             if 'file' not in form_data or not form_data['file']['is_file']:
@@ -96,7 +138,11 @@ class handler(BaseHTTPRequestHandler):
                 self.send_header('Content-Type', 'application/json')
                 self.send_header('Access-Control-Allow-Origin', '*')
                 self.end_headers()
-                self.wfile.write(json.dumps({'error': f'Failed to parse PDF: {str(e)}'}).encode())
+                error_detail = str(e)
+                # Check if it's a pdfplumber import error
+                if 'pdfplumber' in error_detail.lower():
+                    error_detail = 'PDF parsing library not available on server. Please contact support.'
+                self.wfile.write(json.dumps({'error': f'Failed to parse PDF: {error_detail}'}).encode())
                 return
             
             # Get major_id if provided
@@ -145,9 +191,6 @@ class handler(BaseHTTPRequestHandler):
             self.send_header('Access-Control-Allow-Origin', '*')
             self.end_headers()
             error_msg = f'Server error: {str(e)}'
-            # Include traceback in development
-            import traceback
-            error_msg += f'\n\nTraceback:\n{traceback.format_exc()}'
             self.wfile.write(json.dumps({'error': error_msg}).encode())
     
     def do_OPTIONS(self):

@@ -21,11 +21,15 @@ export default function UploadAudit({ majorId, onApply }) {
       form.append("file", file);
       if (majorId) form.append("majorId", majorId);
       const res = await fetch("/api/audit/upload", { method: "POST", body: form });
-      if (!res.ok) throw new Error(`Upload failed (${res.status})`);
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => ({ error: `HTTP ${res.status}` }));
+        throw new Error(errorData.error || `Upload failed (${res.status})`);
+      }
       const data = await res.json();
       setResult(data);
     } catch (err) {
       setError(err.message);
+      console.error('Upload error:', err);
     } finally {
       setLoading(false);
     }
