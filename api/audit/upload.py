@@ -2,8 +2,7 @@ from http.server import BaseHTTPRequestHandler
 import json
 import sys
 import os
-import cgi
-from io import BytesIO
+from urllib.parse import parse_qs
 
 # Add parent directory to path to import audit_parser
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
@@ -11,50 +10,83 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 from audit_parser import parse_pdf, summarize
 from _db import get_db_connection
 
+def parse_multipart(data, boundary):
+    """Simple multipart form data parser"""
+    parts = data.split(boundary.encode())
+    result = {}
+    
+    for part in parts:
+        if not part or part == b'--\r\n' or part == b'--':
+            continue
+            
+        # Find the double newline that separates headers from content
+        if b'\r\n\r\n' in part:
+            headers, content = part.split(b'\r\n\r\n', 1)
+            # Remove trailing \r\n
+            content = content.rstrip(b'\r\n')
+            
+            # Parse Content-Disposition header
+            for line in headers.split(b'\r\n'):
+                if line.startswith(b'Content-Disposition:'):
+                    # Extract field name
+                    if b'name="' in line:
+                        name_start = line.find(b'name="') + 6
+                        name_end = line.find(b'"', name_start)
+                        field_name = line[name_start:name_end].decode()
+                        
+                        # Check if it's a file
+                        if b'filename="' in line:
+                            result[field_name] = {'content': content, 'is_file': True}
+                        else:
+                            result[field_name] = {'content': content.decode(), 'is_file': False}
+    
+    return result
+
 class handler(BaseHTTPRequestHandler):
     def do_POST(self):
         try:
-            # Parse multipart form data
+            content_length = int(self.headers.get('Content-Length', 0))
             content_type = self.headers.get('Content-Type', '')
+            
             if not content_type.startswith('multipart/form-data'):
-                self.send_error(400, 'Expected multipart/form-data')
-                return
-            
-            # Parse the form data
-            form = cgi.FieldStorage(
-                fp=self.rfile,
-                headers=self.headers,
-                environ={
-                    'REQUEST_METHOD': 'POST',
-                    'CONTENT_TYPE': self.headers['Content-Type'],
-                }
-            )
-            
-            # Get the file
-            if 'file' not in form:
                 self.send_response(400)
                 self.send_header('Content-Type', 'application/json')
+                self.send_header('Access-Control-Allow-Origin', '*')
+                self.end_headers()
+                self.wfile.write(json.dumps({'error': 'Expected multipart/form-data'}).encode())
+                return
+            
+            # Extract boundary
+            boundary = None
+            for part in content_type.split(';'):
+                if 'boundary=' in part:
+                    boundary = '--' + part.split('boundary=')[1].strip()
+                    break
+            
+            if not boundary:
+                self.send_response(400)
+                self.send_header('Content-Type', 'application/json')
+                self.send_header('Access-Control-Allow-Origin', '*')
+                self.end_headers()
+                self.wfile.write(json.dumps({'error': 'No boundary found'}).encode())
+                return
+            
+            # Read the body
+            body = self.rfile.read(content_length)
+            
+            # Parse multipart data
+            form_data = parse_multipart(body, boundary)
+            
+            # Get file
+            if 'file' not in form_data or not form_data['file']['is_file']:
+                self.send_response(400)
+                self.send_header('Content-Type', 'application/json')
+                self.send_header('Access-Control-Allow-Origin', '*')
                 self.end_headers()
                 self.wfile.write(json.dumps({'error': 'Missing file field'}).encode())
                 return
             
-            file_item = form['file']
-            if not file_item.filename:
-                self.send_response(400)
-                self.send_header('Content-Type', 'application/json')
-                self.end_headers()
-                self.wfile.write(json.dumps({'error': 'No file uploaded'}).encode())
-                return
-                
-            if not file_item.filename.lower().endswith('.pdf'):
-                self.send_response(400)
-                self.send_header('Content-Type', 'application/json')
-                self.end_headers()
-                self.wfile.write(json.dumps({'error': 'File must be a PDF'}).encode())
-                return
-            
-            # Read file bytes
-            file_bytes = file_item.file.read()
+            file_bytes = form_data['file']['content']
             
             # Parse the PDF
             try:
@@ -62,12 +94,16 @@ class handler(BaseHTTPRequestHandler):
             except Exception as e:
                 self.send_response(500)
                 self.send_header('Content-Type', 'application/json')
+                self.send_header('Access-Control-Allow-Origin', '*')
                 self.end_headers()
                 self.wfile.write(json.dumps({'error': f'Failed to parse PDF: {str(e)}'}).encode())
                 return
             
             # Get major_id if provided
-            major_id = form.getvalue('majorId')
+            major_id = None
+            if 'majorId' in form_data and not form_data['majorId']['is_file']:
+                major_id = form_data['majorId']['content']
+            
             remaining_summary = None
             
             if major_id:
@@ -106,8 +142,13 @@ class handler(BaseHTTPRequestHandler):
         except Exception as e:
             self.send_response(500)
             self.send_header('Content-Type', 'application/json')
+            self.send_header('Access-Control-Allow-Origin', '*')
             self.end_headers()
-            self.wfile.write(json.dumps({'error': f'Server error: {str(e)}'}).encode())
+            error_msg = f'Server error: {str(e)}'
+            # Include traceback in development
+            import traceback
+            error_msg += f'\n\nTraceback:\n{traceback.format_exc()}'
+            self.wfile.write(json.dumps({'error': error_msg}).encode())
     
     def do_OPTIONS(self):
         self.send_response(200)
