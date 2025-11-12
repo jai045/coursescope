@@ -1,11 +1,12 @@
 import { motion } from "framer-motion";
+import icon from "../assets/icon.png";
 
 const Header = ({ onChangeMajor, selectedMajor }) => (
   <header className="sticky top-0 z-40 bg-white/80 backdrop-blur border-b">
     <div className="mx-auto max-w-6xl px-4 py-3 flex items-center justify-between">
       <a href="/" className="flex items-center gap-2 group" aria-label="Go to home">
-        <div className="flex items-center gap-2">
-          <div className="h-10 w-10 md:h-12 md:w-12 rounded-xl bg-gradient-to-tr from-indigo-500 via-purple-500 to-amber-400 shadow-inner" />
+        <div className="flex items-center gap-3">
+          <img src={icon} alt="CourseScope Icon" className="h-14 w-14 md:h-16 md:w-16 object-contain" />
           <span className="text-xl md:text-2xl lg:text-3xl font-extrabold tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-black via-gray-700 to-gray-500">
             CourseScope
           </span>
