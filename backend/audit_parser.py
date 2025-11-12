@@ -1,6 +1,6 @@
 import io
 import re
-from typing import Dict, List, Set, Tuple
+from typing import Dict, List, Set, Tuple, Optional
 
 try:
     import pdfplumber  # type: ignore
@@ -8,6 +8,13 @@ except ImportError:  # Soft fallback; endpoint will raise instructive error if m
     pdfplumber = None
 
 COURSE_CODE_PATTERN = re.compile(r"\b([A-Z]{2,4})\s?(\d{2,3})([A-Z]{1,2})?\b")
+
+# Exclude semester/year codes and other non-course patterns
+EXCLUDE_PATTERNS = [
+    re.compile(r"^(FA|SP|SU|WS|SS)\s+\d{2}$"),  # FA 21, SP 22, SU 23, etc.
+    re.compile(r"^(HN|IP)\s+\d{2,3}$"),  # HN 196, IP 62 (honor codes, etc.)
+]
+
 STATUS_KEYWORDS = {
     "in_progress": ["In Progress", "IP", "In-Progress", "CURRENT"],
     "completed": ["Completed", "Satisfied", "OK", "Earned"],
@@ -22,7 +29,7 @@ IGNORE_PATTERNS = [
     re.compile(r"^Academic Audit"),
 ]
 
-def _normalize_course(dept: str, num: str, suffix: str | None) -> str:
+def _normalize_course(dept: str, num: str, suffix: Optional[str]) -> str:
     code = f"{dept} {num}".strip()
     if suffix:
         # Some audits append letters (e.g., 101H) – treat as part of number
@@ -33,10 +40,13 @@ def extract_courses_from_line(line: str) -> List[str]:
     courses = []
     for match in COURSE_CODE_PATTERN.finditer(line):
         dept, num, suffix = match.groups()
-        courses.append(_normalize_course(dept, num, suffix))
+        course_code = _normalize_course(dept, num, suffix)
+        # Filter out semester codes and other patterns
+        if not any(pat.match(course_code) for pat in EXCLUDE_PATTERNS):
+            courses.append(course_code)
     return courses
 
-def classify_line(line: str) -> str | None:
+def classify_line(line: str) -> Optional[str]:
     for status, keywords in STATUS_KEYWORDS.items():
         for kw in keywords:
             if kw.lower() in line.lower():
@@ -62,7 +72,7 @@ def parse_text(lines: List[str]) -> Dict[str, Set[str]]:
         if not courses:
             continue
         status = classify_line(line)
-        target_set: Set[str] | None = None
+        target_set: Optional[Set[str]] = None
         if status == "completed":
             target_set = completed
         elif status == "in_progress":
