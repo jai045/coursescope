@@ -1,6 +1,6 @@
 import { motion } from "framer-motion";
 import icon from "../assets/icon.png";
-import { supabase } from "../lib/supabaseClient";
+import { supabase, SUPABASE_ENABLED } from "../lib/supabaseClient";
 
 const Header = ({ onChangeMajor, selectedMajor, onAuthOpen, user }) => {
   const handleSignOut = async () => {
@@ -78,7 +78,9 @@ const Header = ({ onChangeMajor, selectedMajor, onAuthOpen, user }) => {
             <span className="relative z-10">Change Major</span>
           </button>
         )}
-        {user ? (
+        {!SUPABASE_ENABLED ? (
+          <div className="text-xs text-amber-700 bg-amber-50 border border-amber-200 px-2 py-1 rounded">Auth not configured</div>
+        ) : user ? (
           <div className="flex items-center gap-2">
             <span className="text-xs text-gray-600">{user.email}</span>
             <button onClick={handleSignOut} className="text-xs px-3 py-1.5 rounded-lg border hover:border-gray-300">Sign out</button>
