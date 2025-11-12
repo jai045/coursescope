@@ -36,8 +36,21 @@ export default function UploadAudit({ majorId, onApply }) {
   };
 
   const applySets = () => {
-    if (!result?.summary) return;
-    onApply?.(new Set(result.summary.completedCourses), new Set(result.summary.inProgressCourses));
+    // Prefer summary if available (has remaining info based on major)
+    if (result?.summary) {
+      onApply?.(
+        new Set(result.summary.completedCourses || []),
+        new Set(result.summary.inProgressCourses || [])
+      );
+      return;
+    }
+    // Fallback: use raw parsed sets when no major is provided
+    if (result?.parsed) {
+      onApply?.(
+        new Set(result.parsed.completed || []),
+        new Set(result.parsed.in_progress || [])
+      );
+    }
   };
 
   return (
@@ -71,17 +84,21 @@ export default function UploadAudit({ majorId, onApply }) {
       {result && (
         <div className="text-xs space-y-2 mt-2">
           <div>
-            <span className="font-medium">Completed:</span> {result.summary?.completedCourses?.length || 0}
+            <span className="font-medium">Completed:</span> {(result.summary?.completedCourses || result.parsed?.completed || []).length}
           </div>
           <div>
-            <span className="font-medium">In Progress:</span> {result.summary?.inProgressCourses?.length || 0}
+            <span className="font-medium">In Progress:</span> {(result.summary?.inProgressCourses || result.parsed?.in_progress || []).length}
           </div>
-          <div>
-            <span className="font-medium">Remaining Required:</span> {result.summary?.remainingRequired?.length || 0}
-          </div>
-          <div>
-            <span className="font-medium">Remaining Electives:</span> {result.summary?.remainingElectives?.length || 0}
-          </div>
+          {result.summary && (
+            <>
+              <div>
+                <span className="font-medium">Remaining Required:</span> {result.summary?.remainingRequired?.length || 0}
+              </div>
+              <div>
+                <span className="font-medium">Remaining Electives:</span> {result.summary?.remainingElectives?.length || 0}
+              </div>
+            </>
+          )}
           {result.summary?.unmatched?.length > 0 && (
             <div className="text-yellow-700">Unmatched: {result.summary.unmatched.length}</div>
           )}

@@ -294,7 +294,30 @@ export default function App() {
         </main>
       ) : !majorConfirmed ? (
         <main className="mx-auto max-w-6xl px-4 py-6 md:py-8">
-          <MajorSelection onSelectMajor={handleMajorSelect} selectedMajor={selectedMajor} onSkipPlanning={handleSkipPlanning} />
+          <div className="grid gap-8 lg:grid-cols-2 items-start">
+            <div className="space-y-6">
+              <MajorSelection onSelectMajor={handleMajorSelect} selectedMajor={selectedMajor} onSkipPlanning={handleSkipPlanning} />
+            </div>
+            <div className="space-y-4">
+              <div className="bg-white border rounded-2xl p-5 shadow-sm">
+                <h2 className="text-lg font-semibold mb-2">Or Import Your Degree Audit</h2>
+                <p className="text-sm text-gray-600 mb-4">Upload your official audit PDF to auto-detect completed and in-progress courses. You can select a major first for remaining requirements, or upload now and choose a major later.</p>
+                <UploadAudit
+                  onApply={(completedSet, inProgressSet) => {
+                    setCompletedCourses(completedSet);
+                    setInProgressCourses(inProgressSet);
+                    setMajorConfirmed(true); // proceed to planner flow
+                    setOnboardingCollapsed(true);
+                    setInProgressSelectionCollapsed(true);
+                    setSkippedPlanning(false);
+                  }}
+                />
+                {!selectedMajor && (
+                  <p className="mt-3 text-xs text-gray-500">Select a major first if you’d like remaining requirement calculations.</p>
+                )}
+              </div>
+            </div>
+          </div>
         </main>
       ) : (
         <div className="flex h-[calc(100vh-80px)]">
@@ -330,18 +353,11 @@ export default function App() {
               {/* Only show onboarding sections if user didn't skip planning */}
               {!skippedPlanning && (
                 <>
-                  <OnboardingSection
-                    courses={allCourses}
-                    onComplete={handleOnboardingComplete}
-                    completedCourses={completedCourses}
-                    isCollapsed={onboardingCollapsed}
-                    setIsCollapsed={setOnboardingCollapsed}
-                  />
-                  {/* New audit upload option */}
-                  {!onboardingCollapsed && selectedMajor && (
-                    <div className="mt-6">
+                  {/* Audit upload FIRST when starting planning */}
+                  {!completedCourses && !onboardingCollapsed && (
+                    <div className="mb-6">
                       <UploadAudit
-                        majorId={selectedMajor.id}
+                        majorId={selectedMajor?.id}
                         onApply={(completedSet, inProgressSet) => {
                           setCompletedCourses(completedSet);
                           setInProgressCourses(inProgressSet);
@@ -352,6 +368,13 @@ export default function App() {
                       />
                     </div>
                   )}
+                  <OnboardingSection
+                    courses={allCourses}
+                    onComplete={handleOnboardingComplete}
+                    completedCourses={completedCourses}
+                    isCollapsed={onboardingCollapsed}
+                    setIsCollapsed={setOnboardingCollapsed}
+                  />
 
                   {/* New In-Progress Selection Section */}
                   {onboardingCollapsed && completedCourses !== null && (
