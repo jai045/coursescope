@@ -4,5 +4,11 @@
   "framework": "vite",
   "rewrites": [
     { "source": "/api/(.*)", "destination": "/api/$1" }
-  ]
+  ],
+  "functions": {
+    "api/audit/upload.py": {
+      "maxDuration": 30,
+      "memory": 1024
+    }
+  }
 }
