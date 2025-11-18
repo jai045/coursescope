@@ -1,13 +1,13 @@
 import { motion } from "framer-motion";
 import { useState, useEffect } from "react";
 
-const MajorSelection = ({ onSelectMajor, selectedMajor, onSkipPlanning }) => {
+const MajorSelection = ({ onSelectMajor, selectedMajor }) => {
   const [majors, setMajors] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
   useEffect(() => {
-    fetch("/api/majors")
+    fetch("http://localhost:5001/api/majors")
       .then(res => res.json())
       .then(data => {
         // Add descriptions for each major/concentration

@@ -2,17 +2,19 @@ import io
 import re
 from typing import Dict, List, Set, Tuple, Optional
 
-try:
-    import pdfplumber  # type: ignore
-except ImportError:  # Soft fallback; endpoint will raise instructive error if missing
-    pdfplumber = None
+# PDF library will be determined at runtime
+PDF_LIBRARY = None
 
-COURSE_CODE_PATTERN = re.compile(r"\b([A-Z]{2,4})\s?(\d{2,3})([A-Z]{1,2})?\b")
+COURSE_CODE_PATTERN = re.compile(r"\b([A-Z]{2,4})\s+(\d{2,3})([A-Z]{1,2})?\b")
+
+# Pattern to match semester+course patterns like "FA22 MATH 121" or "FA22MATH121" (with or without spaces)
+SEMESTER_COURSE_PATTERN = re.compile(r"\b(FA|SP|SU|WS|SS)\d{2}\s*([A-Z]{2,4})\s+(\d{2,3})([A-Z]{1,2})?\b")
 
 # Exclude semester/year codes and other non-course patterns
 EXCLUDE_PATTERNS = [
     re.compile(r"^(FA|SP|SU|WS|SS)\s+\d{2}$"),  # FA 21, SP 22, SU 23, etc.
     re.compile(r"^(HN|IP)\s+\d{2,3}$"),  # HN 196, IP 62 (honor codes, etc.)
+    re.compile(r"^(NO|TRANSFER)\s"),  # NO TRANSFER, etc.
 ]
 
 STATUS_KEYWORDS = {
@@ -36,14 +38,35 @@ def _normalize_course(dept: str, num: str, suffix: Optional[str]) -> str:
         code = f"{dept} {num}{suffix}".strip()
     return code.upper()
 
-def extract_courses_from_line(line: str) -> List[str]:
+def extract_courses_from_line(line, current_status):
+    """Extract course codes from a line, filter out false positives."""
     courses = []
-    for match in COURSE_CODE_PATTERN.finditer(line):
-        dept, num, suffix = match.groups()
-        course_code = _normalize_course(dept, num, suffix)
-        # Filter out semester codes and other patterns
-        if not any(pat.match(course_code) for pat in EXCLUDE_PATTERNS):
-            courses.append(course_code)
+    
+    # First try to match semester+course pattern (FA22 MATH 121)
+    for match in SEMESTER_COURSE_PATTERN.finditer(line):
+        semester, dept, num, suffix = match.groups()
+        suffix = suffix or ""
+        course_code = f"{dept}{num}{suffix}"
+        courses.append((course_code, current_status))
+    
+    # If no semester+course pattern found, try regular course codes
+    if not courses:
+        for match in COURSE_CODE_PATTERN.finditer(line):
+            dept, num, suffix = match.groups()
+            suffix = suffix or ""
+            course_code = f"{dept}{num}{suffix}"
+            
+            # Check if this matches any exclude pattern
+            should_exclude = False
+            full_match = match.group(0)
+            for pattern in EXCLUDE_PATTERNS:
+                if pattern.match(full_match):
+                    should_exclude = True
+                    break
+            
+            if not should_exclude:
+                courses.append((course_code, current_status))
+    
     return courses
 
 def classify_line(line: str) -> Optional[str]:
@@ -56,54 +79,119 @@ def classify_line(line: str) -> Optional[str]:
         return "completed"
     return None
 
-def parse_text(lines: List[str]) -> Dict[str, Set[str]]:
-    completed: Set[str] = set()
-    in_progress: Set[str] = set()
-    planned: Set[str] = set()
-    needed: Set[str] = set()
-
-    for raw in lines:
-        line = raw.strip()
+def parse_text(text):
+    """Parse extracted text to find completed and in-progress courses."""
+    completed = set()
+    in_progress = set()
+    
+    # Split by lines
+    lines = text.split('\n')
+    current_status = None
+    
+    for line in lines:
+        line = line.strip()
         if not line:
             continue
-        if any(patt.search(line) for patt in IGNORE_PATTERNS):
-            continue
-        courses = extract_courses_from_line(line)
-        if not courses:
-            continue
-        status = classify_line(line)
-        target_set: Optional[Set[str]] = None
-        if status == "completed":
-            target_set = completed
-        elif status == "in_progress":
-            target_set = in_progress
-        elif status == "planned":
-            target_set = planned
-        elif status == "needed":
-            target_set = needed
-        # Default heuristic: if no status but line contains a grade -> completed (already handled); else treat as completed?
-        if target_set is None:
-            # Conservative: do not assume completion without explicit indicator
-            continue
-        for c in courses:
-            target_set.add(c)
+        
+        # Classify the line to determine status
+        line_status = classify_line(line)
+        if line_status:
+            current_status = line_status
+        
+        # Check if line contains semester+course pattern (FA22 MATH 121)
+        semester_match = SEMESTER_COURSE_PATTERN.search(line)
+        if semester_match:
+            # Extract grade from the line (usually between credits and title)
+            grade_match = re.search(r'\d+\.\d+\s+([A-Z][+-]?)\s+', line)
+            
+            # Determine status based on grade or position in document
+            if grade_match:
+                grade = grade_match.group(1)
+                # If there's a grade, it's completed
+                line_status = 'completed'
+            elif 'IP' in line or 'IN PROGRESS' in line.upper():
+                line_status = 'in_progress'
+            elif current_status:
+                # Use the current section status
+                line_status = current_status
+            else:
+                # Default to completed if uncertain
+                line_status = 'completed'
+            
+            # Extract the course code
+            courses = extract_courses_from_line(line, line_status)
+            for course_code, status in courses:
+                if status == 'completed':
+                    completed.add(course_code)
+                elif status == 'in_progress':
+                    in_progress.add(course_code)
+    
+    return completed, in_progress
 
-    return {
-        "completed": completed,
-        "in_progress": in_progress,
-        "planned": planned,
-        "needed": needed,
-    }
+def extract_text_pypdf(file_bytes: bytes) -> str:
+    """Extract text using pypdf or PyPDF2"""
+    pdf_file = io.BytesIO(file_bytes)
+    
+    # Try pypdf first
+    try:
+        from pypdf import PdfReader
+        reader = PdfReader(pdf_file)
+        text = ""
+        for page in reader.pages:
+            text += page.extract_text() + "\n"
+        return text
+    except ImportError:
+        pass
+    
+    # Try PyPDF2 as fallback
+    try:
+        from PyPDF2 import PdfReader
+        reader = PdfReader(pdf_file)
+        text = ""
+        for page in reader.pages:
+            text += page.extract_text() + "\n"
+        return text
+    except ImportError as e:
+        raise RuntimeError(f"No PDF library available (tried pypdf and PyPDF2): {str(e)}")
+    except Exception as e:
+        raise RuntimeError(f"Failed to extract text with pypdf/PyPDF2: {str(e)}")
 
-def parse_pdf(file_bytes: bytes) -> Dict[str, Set[str]]:
-    if pdfplumber is None:
-        raise RuntimeError("pdfplumber not installed. Please install dependencies.")
-    with pdfplumber.open(io.BytesIO(file_bytes)) as pdf:
-        lines: List[str] = []
-        for page in pdf.pages:
-            text = page.extract_text() or ""
-            lines.extend(text.splitlines())
-    return parse_text(lines)
+def extract_text_pdfminer(file_bytes: bytes) -> str:
+    """Extract text using pdfminer.six"""
+    try:
+        from io import StringIO
+        from pdfminer.high_level import extract_text_to_fp
+        from pdfminer.layout import LAParams
+        
+        output_string = StringIO()
+        pdf_file = io.BytesIO(file_bytes)
+        extract_text_to_fp(pdf_file, output_string, laparams=LAParams())
+        return output_string.getvalue()
+    except ImportError as e:
+        raise RuntimeError(f"pdfminer.six not available: {str(e)}")
+    except Exception as e:
+        raise RuntimeError(f"Failed to extract text with pdfminer: {str(e)}")
+
+def parse_pdf(pdf_bytes):
+    """Main entry point: Extract text and parse courses."""
+    text = None
+    
+    # Try PyPDF2 first (most compatible with Vercel)
+    try:
+        text = extract_text_pypdf(pdf_bytes)
+    except Exception as e:
+        # Try pdfminer.six as fallback
+        try:
+            text = extract_text_pdfminer(pdf_bytes)
+            if isinstance(text, list):
+                text = '\n'.join(text)
+        except Exception as e2:
+            raise RuntimeError(f"Failed to extract text from PDF. PyPDF2 error: {str(e)}, pdfminer error: {str(e2)}")
+    
+    if not text:
+        raise RuntimeError("No text extracted from PDF")
+    
+    return parse_text(text)
 
 def summarize(parsed: Dict[str, Set[str]], major_required: Set[str], major_electives: Set[str]) -> Dict[str, List[str]]:
     completed = parsed["completed"]
@@ -120,13 +208,3 @@ def summarize(parsed: Dict[str, Set[str]], major_required: Set[str], major_elect
         "plannedCourses": sorted(parsed["planned"]),
         "neededCoursesRaw": sorted(parsed["needed"]),
     }
-
-if __name__ == "__main__":
-    # Simple manual test placeholder (expects test.pdf next to script)
-    test_path = "test.pdf"
-    if os.path.exists(test_path):  # type: ignore[name-defined]
-        with open(test_path, "rb") as f:  # type: ignore[name-defined]
-            result = parse_pdf(f.read())
-            print(result)
-    else:
-        print("Place a test.pdf file in backend/ to try local parsing.")

@@ -70,6 +70,12 @@ export default function App() {
               }
               setCompletedCourses(new Set(state.completed_courses || []));
               setInProgressCourses(new Set(state.in_progress_courses || []));
+              
+              // Auto-collapse onboarding if user has saved progress
+              if (state.completed_courses && state.completed_courses.length > 0) {
+                setOnboardingCollapsed(true);
+                setInProgressSelectionCollapsed(true);
+              }
             }
           } catch (e) {
             console.warn("Failed to load user state:", e.message);
@@ -91,6 +97,12 @@ export default function App() {
             }
             setCompletedCourses(new Set(state.completed_courses || []));
             setInProgressCourses(new Set(state.in_progress_courses || []));
+            
+            // Auto-collapse onboarding if user has saved progress
+            if (state.completed_courses && state.completed_courses.length > 0) {
+              setOnboardingCollapsed(true);
+              setInProgressSelectionCollapsed(true);
+            }
           } else {
             // Fresh user state
             setCompletedCourses(null);

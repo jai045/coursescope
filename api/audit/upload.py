@@ -139,9 +139,9 @@ class handler(BaseHTTPRequestHandler):
                 self.send_header('Access-Control-Allow-Origin', '*')
                 self.end_headers()
                 error_detail = str(e)
-                # Check if it's a pdfplumber import error
-                if 'pdfplumber' in error_detail.lower():
-                    error_detail = 'PDF parsing library not available on server. Please contact support.'
+                # Provide more specific error messages
+                if 'pdf parsing library not available' in error_detail.lower():
+                    error_detail = 'PDF parsing library not available on server. Please ensure requirements.txt includes pdfplumber and pdfminer.six.'
                 self.wfile.write(json.dumps({'error': f'Failed to parse PDF: {error_detail}'}).encode())
                 return
             
