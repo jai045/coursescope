@@ -229,7 +229,7 @@ export const GradeDistributionModal = ({ course, open, onClose }) => {
     setError(null);
 
     try {
-      const response = await fetch(`${API_URL}/courses/${encodeURIComponent(course.code)}/grades`);
+      const response = await fetch(`${API_URL}/grades?code=${encodeURIComponent(course.code)}`);
       
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
