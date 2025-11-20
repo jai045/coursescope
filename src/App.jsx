@@ -664,7 +664,16 @@ export default function App() {
         open={gradesOpen}
         onClose={() => setGradesOpen(false)}
       />
-      <AuthModal isOpen={authOpen} mode={authMode} setMode={setAuthMode} onClose={() => setAuthOpen(false)} onSuccess={(u)=>{setUser(u);}} />
+      <AuthModal 
+        isOpen={authOpen} 
+        mode={authMode} 
+        setMode={setAuthMode} 
+        onClose={() => setAuthOpen(false)} 
+        onSuccess={(u) => {
+          setUser(u);
+          setAuthOpen(false);
+        }} 
+      />
       
       <DiagnosticPanel 
         completedCourses={completedCourses}
