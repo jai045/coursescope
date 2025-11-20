@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import ModalShell from "./ModalShell";
 import { Pill } from "./ui";
 
-const API_URL = "http://127.0.0.1:5001/api";
+const API_URL = import.meta.env.VITE_API_URL || "/api";
 
 const highlightCourseCodes = (text) => {
   if (!text) return text;

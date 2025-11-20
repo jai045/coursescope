@@ -1,13 +1,15 @@
 import { motion } from "framer-motion";
 import { useState, useEffect } from "react";
 
+const API_URL = import.meta.env.VITE_API_URL || "/api";
+
 const MajorSelection = ({ onSelectMajor, selectedMajor }) => {
   const [majors, setMajors] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
   useEffect(() => {
-    fetch("http://localhost:5001/api/majors")
+    fetch(`${API_URL}/majors`)
       .then(res => res.json())
       .then(data => {
         // Add descriptions for each major/concentration
