@@ -78,16 +78,20 @@ export default function App() {
       }
     })();
     const { data: listener } = supabase.auth.onAuthStateChange(async (_event, session) => {
+      console.log('🔐 Auth state changed:', _event);
       setUser(session?.user || null);
       if (session?.user) {
         try {
           const state = await loadUserState(session.user.id);
+          console.log('🔐 Loaded state after auth change:', state);
           if (state && (state.completed_courses?.length > 0 || state.selected_major)) {
             // User has saved state - show resume banner
+            console.log('🔐 Setting saved user state and showing resume banner');
             setSavedUserState(state);
             setShowResumeBanner(true);
           } else {
             // Fresh user state
+            console.log('🔐 No saved state found, starting fresh');
             setSavedUserState(null);
             setShowResumeBanner(false);
             setCompletedCourses(null);
@@ -98,6 +102,7 @@ export default function App() {
         }
       } else {
         // Signed out: clear all state
+        console.log('🔐 User signed out, clearing state');
         setSavedUserState(null);
         setShowResumeBanner(false);
         setSelectedMajor(null);
@@ -115,8 +120,13 @@ export default function App() {
   // Debounced persistence of critical planning state
   useEffect(() => {
     if (!user) return; // only persist when authenticated
+    console.log('🔄 State changed, scheduling save...');
+    console.log('🔄 Current completed courses:', completedCourses);
+    console.log('🔄 Current in-progress courses:', inProgressCourses);
+    console.log('🔄 Current selected courses:', selected);
     if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
     saveTimerRef.current = setTimeout(() => {
+      console.log('🔄 Triggering save now...');
       saveUserState(user.id, {
         selectedMajor,
         completedCourses,
