@@ -181,20 +181,28 @@ def parse_pdf(pdf_bytes: bytes):
     text = extract_text_any(pdf_bytes)
     if not text or not text.strip():
         raise RuntimeError("No text extracted from PDF")
-    return parse_text(text)
+    completed, in_progress = parse_text(text)
+    return {
+        "completed": completed,
+        "in_progress": in_progress,
+        "planned": set(),
+        "needed": set()
+    }
 
 def summarize(parsed: Dict[str, Set[str]], major_required: Set[str], major_electives: Set[str]) -> Dict[str, List[str]]:
-    completed = parsed["completed"]
-    in_progress = parsed["in_progress"]
+    completed = parsed.get("completed", set())
+    in_progress = parsed.get("in_progress", set())
+    planned = parsed.get("planned", set())
+    needed = parsed.get("needed", set())
 
     remaining_required = sorted([c for c in major_required if c not in completed and c not in in_progress])
     remaining_electives = sorted([c for c in major_electives if c not in completed and c not in in_progress])
 
     return {
-        "completedCourses": sorted(completed),
-        "inProgressCourses": sorted(in_progress),
+        "completedCourses": sorted(list(completed)),
+        "inProgressCourses": sorted(list(in_progress)),
         "remainingRequired": remaining_required,
         "remainingElectives": remaining_electives,
-        "plannedCourses": sorted(parsed["planned"]),
-        "neededCoursesRaw": sorted(parsed["needed"]),
+        "plannedCourses": sorted(list(planned)),
+        "neededCoursesRaw": sorted(list(needed)),
     }
