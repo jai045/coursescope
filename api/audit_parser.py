@@ -46,7 +46,8 @@ def extract_courses_from_line(line, current_status):
     for match in SEMESTER_COURSE_PATTERN.finditer(line):
         semester, dept, num, suffix = match.groups()
         suffix = suffix or ""
-        course_code = f"{dept}{num}{suffix}"
+        # Add space between department and number to match database format
+        course_code = f"{dept} {num}{suffix}"
         courses.append((course_code, current_status))
     
     # If no semester+course pattern found, try regular course codes
@@ -54,7 +55,8 @@ def extract_courses_from_line(line, current_status):
         for match in COURSE_CODE_PATTERN.finditer(line):
             dept, num, suffix = match.groups()
             suffix = suffix or ""
-            course_code = f"{dept}{num}{suffix}"
+            # Add space between department and number to match database format
+            course_code = f"{dept} {num}{suffix}"
             
             # Check if this matches any exclude pattern
             should_exclude = False
