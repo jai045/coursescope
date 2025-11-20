@@ -24,9 +24,10 @@ const OnboardingSection = ({
   // Update internal state when completedCourses prop changes
   useEffect(() => {
     if (completedCourses) {
+      console.log(`[OnboardingSection - ${title}] Updating completed state:`, Array.from(completedCourses));
       setCompleted(completedCourses);
     }
-  }, [completedCourses]);
+  }, [completedCourses, title]);
 
   // Filter courses based on prerequisites if enforcePrerequisites is true
   const eligibleCourses = useMemo(() => {

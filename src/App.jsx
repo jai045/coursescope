@@ -225,6 +225,8 @@ export default function App() {
     
     console.log("📦 Completed Set size:", completedSet.size);
     console.log("📦 In-progress Set size:", inProgressSet.size);
+    console.log("📦 Completed Set contents:", Array.from(completedSet));
+    console.log("📦 In-progress Set contents:", Array.from(inProgressSet));
     
     setCompletedCourses(completedSet);
     setInProgressCourses(inProgressSet);
@@ -246,6 +248,7 @@ export default function App() {
       setOnboardingCollapsed(true);
       setInProgressSelectionCollapsed(true);
       setMajorConfirmed(true); // Ensure major is confirmed
+      setSkippedPlanning(false); // Ensure we didn't skip planning
     }
     
     setShowResumeBanner(false);
