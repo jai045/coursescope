@@ -2,6 +2,7 @@ import { useMemo, useState, useEffect, useRef } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import Header from "./components/Header";
 import AuthModal from "./components/AuthModal";
+import ResumeBanner from "./components/ResumeBanner";
 import { supabase } from "./lib/supabaseClient";
 import FilterBar from "./components/FilterBar";
 import EligibleCourses from "./components/EligibleCourses";
@@ -43,6 +44,8 @@ export default function App() {
   const [user, setUser] = useState(null);
   const [authOpen, setAuthOpen] = useState(false);
   const [authMode, setAuthMode] = useState("login");
+  const [savedUserState, setSavedUserState] = useState(null);
+  const [showResumeBanner, setShowResumeBanner] = useState(false);
 
   // Debounce search input to reduce filtering overhead
   const debouncedSearch = useDebounce(search, 300);
@@ -63,19 +66,10 @@ export default function App() {
         if (session?.user) {
           try {
             const state = await loadUserState(session.user.id);
-            if (state) {
-              if (state.selected_major) {
-                // Avoid double fetch if already selected
-                await handleMajorSelect(state.selected_major);
-              }
-              setCompletedCourses(new Set(state.completed_courses || []));
-              setInProgressCourses(new Set(state.in_progress_courses || []));
-              
-              // Auto-collapse onboarding if user has saved progress
-              if (state.completed_courses && state.completed_courses.length > 0) {
-                setOnboardingCollapsed(true);
-                setInProgressSelectionCollapsed(true);
-              }
+            if (state && (state.completed_courses?.length > 0 || state.selected_major)) {
+              // User has saved state - show resume banner instead of auto-loading
+              setSavedUserState(state);
+              setShowResumeBanner(true);
             }
           } catch (e) {
             console.warn("Failed to load user state:", e.message);
@@ -88,23 +82,14 @@ export default function App() {
       if (session?.user) {
         try {
           const state = await loadUserState(session.user.id);
-          if (state) {
-            if (state.selected_major) {
-              await handleMajorSelect(state.selected_major);
-            } else {
-              setSelectedMajor(null);
-              setMajorConfirmed(false);
-            }
-            setCompletedCourses(new Set(state.completed_courses || []));
-            setInProgressCourses(new Set(state.in_progress_courses || []));
-            
-            // Auto-collapse onboarding if user has saved progress
-            if (state.completed_courses && state.completed_courses.length > 0) {
-              setOnboardingCollapsed(true);
-              setInProgressSelectionCollapsed(true);
-            }
+          if (state && (state.completed_courses?.length > 0 || state.selected_major)) {
+            // User has saved state - show resume banner
+            setSavedUserState(state);
+            setShowResumeBanner(true);
           } else {
             // Fresh user state
+            setSavedUserState(null);
+            setShowResumeBanner(false);
             setCompletedCourses(null);
             setInProgressCourses(null);
           }
@@ -112,7 +97,9 @@ export default function App() {
           console.warn("Failed to load user state (auth change):", e.message);
         }
       } else {
-        // Signed out: clear ephemeral planning state
+        // Signed out: clear all state
+        setSavedUserState(null);
+        setShowResumeBanner(false);
         setSelectedMajor(null);
         setMajorConfirmed(false);
         setCompletedCourses(null);
@@ -217,6 +204,36 @@ export default function App() {
     console.log("📋 In-progress courses received:", inProgress);
     setInProgressCourses(inProgress);
     setInProgressSelectionCollapsed(true); // Collapse in-progress modal
+  };
+
+  const handleResumeSession = async () => {
+    if (!savedUserState) return;
+    
+    // Load the saved state
+    if (savedUserState.selected_major) {
+      await handleMajorSelect(savedUserState.selected_major);
+    }
+    setCompletedCourses(new Set(savedUserState.completed_courses || []));
+    setInProgressCourses(new Set(savedUserState.in_progress_courses || []));
+    
+    // Auto-collapse onboarding if user has saved progress
+    if (savedUserState.completed_courses && savedUserState.completed_courses.length > 0) {
+      setOnboardingCollapsed(true);
+      setInProgressSelectionCollapsed(true);
+    }
+    
+    setShowResumeBanner(false);
+  };
+
+  const handleStartFresh = () => {
+    // Start with a clean slate but keep the saved state in case they want to resume later
+    setCompletedCourses(null);
+    setInProgressCourses(null);
+    setSelectedMajor(null);
+    setMajorConfirmed(false);
+    setOnboardingCollapsed(false);
+    setInProgressSelectionCollapsed(true);
+    setShowResumeBanner(false);
   };
 
   const toggleLevel = (lvl) =>
@@ -393,6 +410,15 @@ export default function App() {
         </main>
       ) : !majorConfirmed ? (
         <main className="mx-auto max-w-3xl px-4 py-6 md:py-10 space-y-6">
+          {/* Resume Banner */}
+          {showResumeBanner && savedUserState && (
+            <ResumeBanner 
+              onResume={handleResumeSession}
+              onStartFresh={handleStartFresh}
+              savedState={savedUserState}
+            />
+          )}
+          
           {/* 1) Skip Planning */}
           <div className="bg-white border rounded-2xl p-5 shadow-sm">
             <h2 className="text-lg font-semibold mb-2">Skip Planning</h2>
