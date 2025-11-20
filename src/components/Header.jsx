@@ -4,8 +4,21 @@ import { supabase, SUPABASE_ENABLED } from "../lib/supabaseClient";
 
 const Header = ({ onChangeMajor, selectedMajor, onAuthOpen, user }) => {
   const handleSignOut = async () => {
-    await supabase.auth.signOut();
-    window.location.reload();
+    try {
+      const { error } = await supabase.auth.signOut();
+      if (error) {
+        console.error('Sign out error:', error);
+      }
+      // Clear local storage to remove any cached state
+      localStorage.clear();
+      // Force reload to reset app state
+      window.location.href = '/';
+    } catch (err) {
+      console.error('Sign out failed:', err);
+      // Still try to reload even if there's an error
+      localStorage.clear();
+      window.location.href = '/';
+    }
   };
 
   return (
