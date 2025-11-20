@@ -121,10 +121,11 @@ export default function App() {
         selectedMajor,
         completedCourses,
         inProgressCourses,
+        plannedCourses: selected,
       }).catch(e => console.warn('Persist user state failed:', e.message));
     }, 800); // slight delay to batch rapid changes
     return () => saveTimerRef.current && clearTimeout(saveTimerRef.current);
-  }, [user, selectedMajor, completedCourses, inProgressCourses]);
+  }, [user, selectedMajor, completedCourses, inProgressCourses, selected]);
 
   // Collapse sidebar when entering edit mode (onboarding expanded)
   useEffect(() => {
@@ -212,6 +213,7 @@ export default function App() {
     console.log("📦 Resuming session with saved state:", savedUserState);
     console.log("📦 Completed courses from DB:", savedUserState.completed_courses);
     console.log("📦 In-progress courses from DB:", savedUserState.in_progress_courses);
+    console.log("📦 Planned courses from DB:", savedUserState.planned_courses);
     
     // Load the saved state
     if (savedUserState.selected_major) {
@@ -226,6 +228,18 @@ export default function App() {
     
     setCompletedCourses(completedSet);
     setInProgressCourses(inProgressSet);
+    
+    // Restore planned courses (need to match with full course objects)
+    if (savedUserState.planned_courses && savedUserState.planned_courses.length > 0) {
+      const plannedCourseCodes = savedUserState.planned_courses;
+      const restoredPlanned = allCourses.filter(course => 
+        plannedCourseCodes.some(planned => 
+          (typeof planned === 'string' ? planned : planned.code) === course.code
+        )
+      );
+      setSelected(restoredPlanned);
+      console.log("📦 Restored planned courses:", restoredPlanned.length);
+    }
     
     // Auto-collapse onboarding if user has saved progress
     if (savedUserState.completed_courses && savedUserState.completed_courses.length > 0) {
