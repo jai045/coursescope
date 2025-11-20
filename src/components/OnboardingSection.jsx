@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Search } from "lucide-react";
 
@@ -20,6 +20,13 @@ const OnboardingSection = ({
   const [searchQuery, setSearchQuery] = useState("");
   const [skipValidation, setSkipValidation] = useState(false);
   const isCollapsed = externalCollapsed ?? (completedCourses !== null);
+
+  // Update internal state when completedCourses prop changes
+  useEffect(() => {
+    if (completedCourses) {
+      setCompleted(completedCourses);
+    }
+  }, [completedCourses]);
 
   // Filter courses based on prerequisites if enforcePrerequisites is true
   const eligibleCourses = useMemo(() => {

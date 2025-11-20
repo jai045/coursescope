@@ -209,17 +209,29 @@ export default function App() {
   const handleResumeSession = async () => {
     if (!savedUserState) return;
     
+    console.log("📦 Resuming session with saved state:", savedUserState);
+    console.log("📦 Completed courses from DB:", savedUserState.completed_courses);
+    console.log("📦 In-progress courses from DB:", savedUserState.in_progress_courses);
+    
     // Load the saved state
     if (savedUserState.selected_major) {
       await handleMajorSelect(savedUserState.selected_major);
     }
-    setCompletedCourses(new Set(savedUserState.completed_courses || []));
-    setInProgressCourses(new Set(savedUserState.in_progress_courses || []));
+    
+    const completedSet = new Set(savedUserState.completed_courses || []);
+    const inProgressSet = new Set(savedUserState.in_progress_courses || []);
+    
+    console.log("📦 Completed Set size:", completedSet.size);
+    console.log("📦 In-progress Set size:", inProgressSet.size);
+    
+    setCompletedCourses(completedSet);
+    setInProgressCourses(inProgressSet);
     
     // Auto-collapse onboarding if user has saved progress
     if (savedUserState.completed_courses && savedUserState.completed_courses.length > 0) {
       setOnboardingCollapsed(true);
       setInProgressSelectionCollapsed(true);
+      setMajorConfirmed(true); // Ensure major is confirmed
     }
     
     setShowResumeBanner(false);
