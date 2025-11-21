@@ -3,7 +3,7 @@ from bs4 import BeautifulSoup
 import sqlite3
 import re
 
-# Configuration for different majors
+# Configuration for different majors (CS + Data Science)
 MAJOR_CONFIGS = {
     'CS': {
         'name': 'Computer Science',
@@ -15,14 +15,14 @@ MAJOR_CONFIGS = {
         ],
         'department_categories': {
             'Required CS': ['CS'],
-            'Required Math': ['MATH', 'IE', 'STAT'],
+            'Required Math': ['MATH', 'IE', 'STAT', 'IDS'],
             'Required Science': ['PHYS', 'CHEM', 'BIOS'],
             'Required English': ['ENGL'],
-            'Required Other': ['ENGR']
+            'Required Other': ['ENGR', 'ECE']
         },
         'elective_categories': {
             'CS Electives': ['CS'],
-            'Math Electives': ['MATH', 'IE', 'STAT'],
+            'Math Electives': ['MATH', 'IE', 'STAT', 'IDS'],
             'Science Electives': ['PHYS', 'CHEM', 'BIOS'],
             'Other Electives': []  # Catch-all
         },
@@ -46,12 +46,75 @@ MAJOR_CONFIGS = {
             {
                 'name': 'Design',
                 'url': 'https://catalog.uic.edu/ucat/colleges-depts/engineering/cs/bs-cs-design/'
+            },
+            {
+                'name': 'Minor',
+                'url': 'https://catalog.uic.edu/ucat/colleges-depts/engineering/cs/minor-cs/'
+            },
+            {
+                'name': 'Joint BS/MS',
+                'url': 'https://catalog.uic.edu/ucat/colleges-depts/engineering/cs/joint-bs-ms/'
+            }
+        ]
+    },
+    'DS': {
+        'name': 'Data Science',
+        'core_courses': [
+            # Fallback list only if parsing fails
+            'CS 141', 'CS 151', 'CS 211', 'CS 251', 'STAT 381'
+        ],
+        'department_categories': {
+            'Required Data/CS': ['CS', 'IDS'],
+            'Required Math/Stat': ['MATH', 'STAT', 'IE'],
+            'Required Science': ['BIOS', 'CHEM', 'PHYS'],
+            'Required Other': ['ENGR', 'ECE']
+        },
+        'elective_categories': {
+            'Data/CS Electives': ['CS', 'IDS'],
+            'Math/Stat Electives': ['MATH', 'STAT', 'IE'],
+            'Science Electives': ['BIOS', 'CHEM', 'PHYS'],
+            'Business Electives': ['FIN', 'MGMT', 'MKTG', 'ACTG'],
+            'Other Electives': []
+        },
+        'concentrations': [
+            {
+                'name': 'Bioinformatics',
+                'url': 'https://catalog.uic.edu/ucat/colleges-depts/engineering/cs/bs-data-science-bioinformatics/'
+            },
+            {
+                'name': 'Business Analytics',
+                'url': 'https://catalog.uic.edu/ucat/colleges-depts/engineering/cs/bs-data-science-business-analytics/'
+            },
+            {
+                'name': 'Computer Science',
+                'url': 'https://catalog.uic.edu/ucat/colleges-depts/engineering/cs/bs-data-science-computer-science/'
+            },
+            {
+                'name': 'Data Processing, Science, and Engineering',
+                'url': 'https://catalog.uic.edu/ucat/colleges-depts/engineering/cs/bs-data-science-data-processing-science-engineering/'
+            },
+            {
+                'name': 'Health Data Science',
+                'url': 'https://catalog.uic.edu/ucat/colleges-depts/engineering/cs/bs-data-science-health-data-science/'
+            },
+            {
+                'name': 'Industrial Engineering',
+                'url': 'https://catalog.uic.edu/ucat/colleges-depts/engineering/cs/bs-data-science-industrial-engineering/'
+            },
+            {
+                'name': 'Social Technology Studies',
+                'url': 'https://catalog.uic.edu/ucat/colleges-depts/engineering/cs/bs-data-science-social-technology-studies/'
+            },
+            {
+                'name': 'Statistics',
+                'url': 'https://catalog.uic.edu/ucat/colleges-depts/engineering/cs/bs-data-science-statistics/'
+            },
+            {
+                'name': 'Urban Planning and Public Affairs',
+                'url': 'https://catalog.uic.edu/ucat/colleges-depts/engineering/cs/bs-data-science-urban-planning-public-affairs/'
             }
         ]
     }
-    # Add more majors here:
-    # 'MATH': { ... },
-    # 'PHYS': { ... },
 }
 
 def create_major_tables():
@@ -119,6 +182,25 @@ def scrape_major_requirements(url, config):
         # Get the heading before this table to determine context
         prev_heading = table.find_previous(['h2', 'h3', 'h4'])
         context = prev_heading.get_text().lower() if prev_heading else ""
+
+        # Filter out non-requirement tables to reduce noise
+        skip_keywords = ['sample', 'learning outcome', 'gen ed', 'general education', 'recommended', 'overview']
+        if any(sk in context for sk in skip_keywords):
+            continue
+
+        include_keywords = ['require', 'elective', 'core', 'concentration', 'minor', 'choose', 'select']
+        if not any(kw in context for kw in include_keywords):
+            continue
+
+        # Skip tables that are clearly not requirement/elective listings
+        skip_keywords = ['sample', 'learning outcome', 'gen ed', 'general education', 'recommended', 'overview']
+        if any(sk in context for sk in skip_keywords):
+            continue
+
+        # Only process tables whose heading signals requirements or electives
+        include_keywords = ['require', 'elective', 'core', 'concentration', 'minor', 'choose', 'select']
+        if not any(kw in context for kw in include_keywords):
+            continue
 
         # Check if this is an elective section
         is_elective = any(keyword in context for keyword in ['elective', 'select', 'choose', 'option'])
