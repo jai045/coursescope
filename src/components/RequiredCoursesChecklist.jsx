@@ -13,7 +13,7 @@ const RequiredCoursesChecklist = ({
   setCollapsed,
   summaryGroups = [] // New prop for hour requirement buckets
 }) => {
-  const [expandedTypes, setExpandedTypes] = useState(new Set(["Core CS"]));
+  const [expandedTypes, setExpandedTypes] = useState(new Set(["Core Courses", "General and Basic Education Requirements"]));
   const [expandedElectives, setExpandedElectives] = useState(new Set());
 
   // Helper function to format category names
@@ -33,15 +33,49 @@ const RequiredCoursesChecklist = ({
   const inProgressCodesArray = inProgressCourses ? Array.from(inProgressCourses) : []; // Convert in-progress courses to array
   const selectedCodesArray = selectedCourses ? selectedCourses.map(c => c.code) : [];
 
-  // Group courses by requirement type
-  const coursesByType = requiredCourses.reduce((acc, course) => {
+  // Map requirement types to catalog sections
+  const mapToSection = (course) => {
     const type = course.requirementType || "Other";
-    if (!acc[type]) {
-      acc[type] = [];
+    const code = course.code || "";
+    
+    // Map based on requirement type and course prefix
+    if (type.includes("English") || type.includes("Science") || 
+        code.startsWith("ENGL") || code.startsWith("BIOS") || 
+        code.startsWith("CHEM") || code.startsWith("PHYS") || 
+        code.startsWith("EAES") ||
+        type.includes("General Education")) {
+      return "General and Basic Education Requirements";
     }
-    acc[type].push(course);
+    if (type.includes("Math") || type.includes("Stat") || 
+        code.startsWith("MATH") || code.startsWith("STAT") || 
+        code.startsWith("IE")) {
+      return "Required Mathematics Courses";
+    }
+    if (type.includes("CS") || type.includes("Data/CS") || 
+        code.startsWith("CS") || code.startsWith("IDS") || 
+        code.startsWith("ENGR")) {
+      return "Core Courses";
+    }
+    return "Other Requirements";
+  };
+
+  // Group courses by catalog section
+  const coursesBySection = requiredCourses.reduce((acc, course) => {
+    const section = mapToSection(course);
+    if (!acc[section]) {
+      acc[section] = [];
+    }
+    acc[section].push(course);
     return acc;
   }, {});
+
+  // Define section order to match catalog
+  const sectionOrder = [
+    "General and Basic Education Requirements",
+    "Core Courses", 
+    "Required Mathematics Courses",
+    "Other Requirements"
+  ];
 
   const toggleType = (type) => {
     setExpandedTypes(prev => {
@@ -67,13 +101,26 @@ const RequiredCoursesChecklist = ({
     });
   };
 
-  // Group electives by type
-  const electivesByType = electiveCourses ? electiveCourses.reduce((acc, course) => {
+  // Group electives by catalog section
+  const electivesBySection = electiveCourses ? electiveCourses.reduce((acc, course) => {
     const type = course.electiveType || "Other Electives";
-    if (!acc[type]) {
-      acc[type] = [];
+    let section = type;
+    
+    // Map elective types to catalog sections
+    if (type.includes("CS Electives") || type.includes("Technical")) {
+      section = "Computer Science Concentration Requirements";
+    } else if (type.includes("Math")) {
+      section = "Required Mathematics Courses";
+    } else if (type.includes("Science")) {
+      section = "Science Electives";
+    } else {
+      section = "Free Electives";
     }
-    acc[type].push(course);
+    
+    if (!acc[section]) {
+      acc[section] = [];
+    }
+    acc[section].push(course);
     return acc;
   }, {}) : {};
 
@@ -175,23 +222,26 @@ const RequiredCoursesChecklist = ({
         )}
 
         {/* Required Courses Section */}
-        {requiredCourses && requiredCourses.length > 0 && Object.entries(coursesByType).map(([type, courses]) => {
-          const isExpanded = expandedTypes.has(type);
+        {requiredCourses && requiredCourses.length > 0 && sectionOrder.map(section => {
+          const courses = coursesBySection[section];
+          if (!courses || courses.length === 0) return null;
+          
+          const isExpanded = expandedTypes.has(section);
           const typeCompleted = courses.filter(c => completedCodesArray.includes(c.code)).length;
           const typeInPlan = courses.filter(c =>
             selectedCodesArray.includes(c.code) && !completedCodesArray.includes(c.code)
           ).length;
 
           return (
-            <div key={type} className="space-y-2">
+            <div key={section} className="space-y-2">
               {/* Type Header */}
               <button
-                onClick={() => toggleType(type)}
+                onClick={() => toggleType(section)}
                 className="w-full flex items-center justify-between p-2 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
               >
                 <div className="flex items-center gap-2">
                   <span className="text-lg">{isExpanded ? "▼" : "▶"}</span>
-                  <span className="font-semibold text-sm">{formatCategoryName(type)}</span>
+                  <span className="font-semibold text-sm">{section}</span>
                   <span className="text-xs text-gray-500">
                     ({typeCompleted}/{courses.length})
                   </span>
@@ -305,7 +355,7 @@ const RequiredCoursesChecklist = ({
         {/* Electives Section */}
         {electiveCourses && electiveCourses.length > 0 && (
           <>
-            {Object.entries(electivesByType).map(([type, courses]) => {
+            {Object.entries(electivesBySection).map(([type, courses]) => {
               const isExpanded = expandedElectives.has(type);
               const typeCompleted = courses.filter(c => completedCodesArray.includes(c.code)).length;
               const typeInPlan = courses.filter(c =>
@@ -321,7 +371,7 @@ const RequiredCoursesChecklist = ({
                   >
                     <div className="flex items-center gap-2">
                       <span className="text-lg">{isExpanded ? "▼" : "▶"}</span>
-                      <span className="font-semibold text-sm">{formatCategoryName(type)}</span>
+                      <span className="font-semibold text-sm">{type}</span>
                       <span className="text-xs text-gray-500">
                         ({courses.length} options)
                       </span>
