@@ -227,8 +227,18 @@ def parse_summary_groups(soup):
                 min_h = max_h = val
             except ValueError:
                 continue
+        
+        # Normalize group names to match standard academic terminology
+        normalized_name = name.replace('\u00a0', ' ').strip()
+        if 'Nonengineering and General Education Requirements' in normalized_name:
+            normalized_name = 'General and Basic Education Requirements'
+        elif 'Required in the College of Engineering' in normalized_name:
+            normalized_name = 'Core Courses'
+        elif 'Technical Electives' in normalized_name:
+            normalized_name = 'Computer Science Concentration Requirements'
+        
         groups.append({
-            'name': name.replace('\u00a0', ' ').strip(),
+            'name': normalized_name,
             'min_hours': min_h,
             'max_hours': max_h,
             'position': position
