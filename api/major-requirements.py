@@ -63,6 +63,22 @@ class handler(BaseHTTPRequestHandler):
 
             electives_data = cursor.fetchall()
 
+            # Get summary requirement groups (credit buckets)
+            cursor.execute('''
+                SELECT group_name, min_hours, max_hours, position
+                FROM major_requirement_groups
+                WHERE major_id = ?
+                ORDER BY position
+            ''', (major_id,))
+            groups_rows = cursor.fetchall()
+            groups_summary = []
+            for gr in groups_rows:
+                groups_summary.append({
+                    'name': gr['group_name'],
+                    'minHours': gr['min_hours'],
+                    'maxHours': gr['max_hours']
+                })
+
             # Get full course details for each requirement
             required_courses = []
             for req in requirements:
@@ -137,6 +153,7 @@ class handler(BaseHTTPRequestHandler):
                     'name': major['name'],
                     'concentration': major['concentration']
                 },
+                'summaryGroups': groups_summary,
                 'requiredCourses': required_courses,
                 'electiveCourses': elective_courses
             }

@@ -28,6 +28,7 @@ export default function App() {
   const [majorConfirmed, setMajorConfirmed] = useState(false);
   const [requiredCourses, setRequiredCourses] = useState([]);
   const [electiveCourses, setElectiveCourses] = useState([]);
+  const [summaryGroups, setSummaryGroups] = useState([]);
   const [completedCourses, setCompletedCourses] = useState(null);
   const [inProgressCourses, setInProgressCourses] = useState(null); // New state for in-progress courses
   const [allCourses, setAllCourses] = useState([]);
@@ -172,8 +173,10 @@ export default function App() {
       const data = await response.json();
       setRequiredCourses(data.requiredCourses);
       setElectiveCourses(data.electiveCourses || []);
+      setSummaryGroups(data.summaryGroups || []);
       console.log("✓ Loaded major requirements:", data.requiredCourses.length);
       console.log("✓ Loaded elective courses:", data.electiveCourses?.length || 0);
+      console.log("✓ Loaded summary groups:", data.summaryGroups?.length || 0);
     } catch (error) {
       console.error("✗ Error fetching major requirements:", error);
     }
@@ -552,6 +555,7 @@ export default function App() {
               isEditingCompleted={!onboardingCollapsed || !inProgressSelectionCollapsed} // Adjust edit mode logic
               collapsed={sidebarCollapsed}
               setCollapsed={setSidebarCollapsed}
+              summaryGroups={summaryGroups}
             />
           )}
 

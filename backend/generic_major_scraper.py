@@ -156,8 +156,85 @@ def create_major_tables():
         )
     ''')
 
+    # Table for summary requirement groups (credit hour buckets)
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS major_requirement_groups (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            major_id INTEGER NOT NULL,
+            group_name TEXT NOT NULL,
+            min_hours INTEGER,
+            max_hours INTEGER,
+            position INTEGER NOT NULL DEFAULT 0,
+            FOREIGN KEY (major_id) REFERENCES majors(id),
+            UNIQUE(major_id, group_name)
+        )
+    ''')
+
     conn.commit()
     return conn
+
+def parse_summary_groups(soup):
+    """Parse the 'Summary of Requirements' table into structured groups.
+    Returns list of dicts: {name, min_hours, max_hours, position}
+    """
+    groups = []
+    summary_table = None
+    # Find a table that contains a span with text 'Summary of Requirements'
+    for tbl in soup.find_all('table'):
+        if tbl.find('span', string=lambda s: s and 'Summary of Requirements' in s):
+            summary_table = tbl
+            break
+    if not summary_table:
+        return groups
+
+    position = 0
+    for tr in summary_table.find_all('tr'):
+        # Skip header and empty rows
+        if 'Summary of Requirements' in tr.get_text():
+            continue
+        tds = tr.find_all('td')
+        if not tds:
+            continue
+        # Expect last td with hourscol
+        hours_td = tr.find('td', class_='hourscol')
+        if not hours_td:
+            continue
+        name_text_parts = []
+        # Collect name from spans or from first td(s)
+        for span in tr.find_all('span', class_='courselistcomment'):
+            txt = span.get_text(strip=True)
+            if txt:
+                name_text_parts.append(txt)
+        if not name_text_parts:
+            # Fallback to first td text (excluding 'Total Hours' which we still want)
+            name_text_parts.append(tds[0].get_text(strip=True))
+        name = ' '.join(name_text_parts)
+        hours_text = hours_td.get_text(strip=True)
+        if not hours_text:
+            continue
+        # Parse hour range or single value
+        min_h = max_h = None
+        if '-' in hours_text:
+            try:
+                parts = hours_text.split('-')
+                min_h = int(parts[0])
+                max_h = int(parts[1])
+            except ValueError:
+                pass
+        else:
+            try:
+                val = int(hours_text)
+                min_h = max_h = val
+            except ValueError:
+                continue
+        groups.append({
+            'name': name.replace('\u00a0', ' ').strip(),
+            'min_hours': min_h,
+            'max_hours': max_h,
+            'position': position
+        })
+        position += 1
+    return groups
 
 def scrape_major_requirements(url, config):
     """Generic scraper for major requirements using configuration"""
@@ -261,9 +338,10 @@ def scrape_major_requirements(url, config):
                             print(f"✓ Found {req_type} (fallback): {core_course}")
                         break
 
-    return requirements, electives
+    summary_groups = parse_summary_groups(soup)
+    return requirements, electives, summary_groups
 
-def insert_major_requirements(conn, requirements, electives, major_name, concentration):
+def insert_major_requirements(conn, requirements, electives, summary_groups, major_name, concentration):
     """Insert major, requirements, and electives into database"""
     cursor = conn.cursor()
 
@@ -316,6 +394,17 @@ def insert_major_requirements(conn, requirements, electives, major_name, concent
                 total_electives += 1
             except sqlite3.IntegrityError:
                 print(f"Duplicate elective: {course_code}")
+
+    # Insert summary groups
+    for grp in summary_groups:
+        try:
+            cursor.execute('''
+                INSERT OR IGNORE INTO major_requirement_groups
+                (major_id, group_name, min_hours, max_hours, position)
+                VALUES (?, ?, ?, ?, ?)
+            ''', (major_id, grp['name'], grp['min_hours'], grp['max_hours'], grp['position']))
+        except sqlite3.IntegrityError:
+            pass
 
     conn.commit()
     print(f"\n✓ Successfully inserted {total_courses} required courses and {total_electives} electives!")
@@ -411,10 +500,10 @@ def scrape_all_majors(major_keys=None, test_mode=False):
             print("-" * 50)
 
             try:
-                requirements, electives = scrape_major_requirements(url, config)
+                requirements, electives, summary_groups = scrape_major_requirements(url, config)
 
-                if any(requirements.values()) or any(electives.values()):
-                    insert_major_requirements(conn, requirements, electives, major_name, concentration)
+                if any(requirements.values()) or any(electives.values()) or summary_groups:
+                    insert_major_requirements(conn, requirements, electives, summary_groups, major_name, concentration)
                     print(f"✓ Successfully processed {display_name}")
                 else:
                     print(f"⚠ No requirements or electives found for {display_name}")

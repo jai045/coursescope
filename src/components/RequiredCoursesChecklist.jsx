@@ -10,7 +10,8 @@ const RequiredCoursesChecklist = ({
   onCourseClick,
   isEditingCompleted = false,
   collapsed,
-  setCollapsed
+  setCollapsed,
+  summaryGroups = [] // New prop for hour requirement buckets
 }) => {
   const [expandedTypes, setExpandedTypes] = useState(new Set(["Core CS"]));
   const [expandedElectives, setExpandedElectives] = useState(new Set());
@@ -154,6 +155,25 @@ const RequiredCoursesChecklist = ({
 
       {/* Course List */}
       <div className="flex-1 overflow-y-auto p-4 space-y-3">
+        {/* Summary of Requirements */}
+        {summaryGroups && summaryGroups.length > 0 && (
+          <div className="mb-4 bg-blue-50 border-2 border-blue-200 rounded-lg p-3">
+            <h3 className="font-bold text-sm mb-2 text-blue-900">Summary of Requirements</h3>
+            <div className="space-y-1">
+              {summaryGroups.map((group, idx) => (
+                <div key={idx} className="flex justify-between text-xs">
+                  <span className="text-gray-700">{group.name}</span>
+                  <span className="font-semibold text-gray-900">
+                    {group.minHours === group.maxHours 
+                      ? group.minHours 
+                      : `${group.minHours}-${group.maxHours}`}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
         {/* Required Courses Section */}
         {requiredCourses && requiredCourses.length > 0 && Object.entries(coursesByType).map(([type, courses]) => {
           const isExpanded = expandedTypes.has(type);
