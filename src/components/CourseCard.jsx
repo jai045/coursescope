@@ -1,6 +1,6 @@
 import { motion } from "framer-motion";
 import { Pill } from "./ui";
-import { useState } from "react";
+import { useState, memo } from "react";
 
 const CourseCard = ({ course, courseType, onAdd, onOpenDetail, onOpenGrades }) => {
   const [isHovered, setIsHovered] = useState(false);
@@ -29,10 +29,10 @@ const CourseCard = ({ course, courseType, onAdd, onOpenDetail, onOpenGrades }) =
 
   return (
     <motion.div
-      layout
       className={`rounded-2xl border ${getBackgroundColor()} p-4 shadow-sm flex flex-col gap-3 relative h-full`}
-      initial={{ opacity: 0, y: 10 }}
+      initial={{ opacity: 0, y: 6 }}
       animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.2, ease: "easeOut" }}
     >
       <div className="space-y-2">
         <div>
@@ -153,4 +153,4 @@ const CourseCard = ({ course, courseType, onAdd, onOpenDetail, onOpenGrades }) =
   );
 };
 
-export default CourseCard;
+export default memo(CourseCard);

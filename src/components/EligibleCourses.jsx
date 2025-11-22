@@ -9,9 +9,9 @@ const EligibleCourses = ({ courses, allCourses, requiredCourses, electiveCourses
   const [otherExpanded, setOtherExpanded] = useState(skippedPlanning);
   const [showAllOther, setShowAllOther] = useState(false);
 
-  // Create sets of course codes for quick lookup
-  const requiredCourseCodes = new Set(requiredCourses.map(c => c.code));
-  const electiveCourseCodes = new Set(electiveCourses.map(c => c.code));
+  // Create sets of course codes for quick lookup (memoized)
+  const requiredCourseCodes = useMemo(() => new Set(requiredCourses.map(c => c.code)), [requiredCourses]);
+  const electiveCourseCodes = useMemo(() => new Set(electiveCourses.map(c => c.code)), [electiveCourses]);
 
   const getCourseType = (courseCode) => {
     if (requiredCourseCodes.has(courseCode)) return 'required';
@@ -20,15 +20,13 @@ const EligibleCourses = ({ courses, allCourses, requiredCourses, electiveCourses
   };
 
   // Categorize courses into three groups - memoize to avoid recalculation
-  const eligibleRequired = useMemo(() =>
-    courses.filter(c => requiredCourseCodes.has(c.code)),
-    [courses, requiredCourseCodes]
-  );
+  const eligibleRequired = useMemo(() => {
+    return courses.filter(c => requiredCourseCodes.has(c.code));
+  }, [courses, requiredCourseCodes]);
 
-  const eligibleElectives = useMemo(() =>
-    courses.filter(c => electiveCourseCodes.has(c.code)),
-    [courses, electiveCourseCodes]
-  );
+  const eligibleElectives = useMemo(() => {
+    return courses.filter(c => electiveCourseCodes.has(c.code));
+  }, [courses, electiveCourseCodes]);
 
   // Use all available courses for the third section (not filtered by prerequisites)
   const allAvailableCourses = allCourses || [];

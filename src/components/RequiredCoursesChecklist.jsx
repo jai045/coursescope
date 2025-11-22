@@ -1,5 +1,5 @@
 import { motion, AnimatePresence } from "framer-motion";
-import { useState } from "react";
+import { useState, useMemo } from "react";
 
 const RequiredCoursesChecklist = ({
   requiredCourses,
@@ -63,15 +63,15 @@ const RequiredCoursesChecklist = ({
     return "Other Requirements";
   };
 
-  // Group courses by audit section
-  const coursesBySection = requiredCourses.reduce((acc, course) => {
-    const section = mapToSection(course);
-    if (!acc[section]) {
-      acc[section] = [];
-    }
-    acc[section].push(course);
-    return acc;
-  }, {});
+  // Group courses by audit section (memoized)
+  const coursesBySection = useMemo(() => {
+    return requiredCourses.reduce((acc, course) => {
+      const section = mapToSection(course);
+      if (!acc[section]) acc[section] = [];
+      acc[section].push(course);
+      return acc;
+    }, {});
+  }, [requiredCourses]);
 
   // Define section order to match audit layout
   const sectionOrder = [
@@ -107,38 +107,45 @@ const RequiredCoursesChecklist = ({
     });
   };
 
-  // Group electives by audit section
-  const electivesBySection = electiveCourses ? electiveCourses.reduce((acc, course) => {
-    const type = course.electiveType || "Other Electives";
-    let section = type;
-    
-    // Map elective types to audit sections
-    if (type.includes("CS Electives") || type.includes("Technical")) {
-      section = "Technical Electives (CS Major)";
-    } else if (type.includes("Math")) {
-      section = "Math Electives (CS Major)";
-    } else if (type.includes("Science")) {
-      section = "Science Electives (CS Major)";
-    } else {
-      section = "Free Electives";
-    }
-    
-    if (!acc[section]) {
-      acc[section] = [];
-    }
-    acc[section].push(course);
-    return acc;
-  }, {}) : {};
+  // Group electives by audit section (memoized)
+  const electivesBySection = useMemo(() => {
+    if (!electiveCourses) return {};
+    return electiveCourses.reduce((acc, course) => {
+      const type = course.electiveType || "Other Electives";
+      let section = type;
+      if (type.includes("CS Electives") || type.includes("Technical")) {
+        section = "Technical Electives (CS Major)";
+      } else if (type.includes("Math")) {
+        section = "Math Electives (CS Major)";
+      } else if (type.includes("Science")) {
+        section = "Science Electives (CS Major)";
+      } else {
+        section = "Free Electives";
+      }
+      if (!acc[section]) acc[section] = [];
+      acc[section].push(course);
+      return acc;
+    }, {});
+  }, [electiveCourses]);
 
   // Calculate overall progress (only for required courses)
-  const totalRequired = requiredCourses ? requiredCourses.length : 0;
-  const totalCompleted = requiredCourses ? requiredCourses.filter(c =>
-    completedCodesArray.includes(c.code)
-  ).length : 0;
-  const totalInPlan = requiredCourses ? requiredCourses.filter(c =>
-    selectedCodesArray.includes(c.code) && !completedCodesArray.includes(c.code)
-  ).length : 0;
-  const progressPercentage = totalRequired > 0 ? Math.round((totalCompleted / totalRequired) * 100) : 0;
+  const { totalRequired, totalCompleted, totalInPlan, progressPercentage } = useMemo(() => {
+    const totalReq = requiredCourses ? requiredCourses.length : 0;
+    let completed = 0;
+    let inPlan = 0;
+    if (requiredCourses) {
+      for (const c of requiredCourses) {
+        const code = c.code;
+        if (completedCodesArray.includes(code)) {
+          completed++;
+        } else if (selectedCodesArray.includes(code)) {
+          inPlan++;
+        }
+      }
+    }
+    const pct = totalReq > 0 ? Math.round((completed / totalReq) * 100) : 0;
+    return { totalRequired: totalReq, totalCompleted: completed, totalInPlan: inPlan, progressPercentage: pct };
+  }, [requiredCourses, completedCodesArray, selectedCodesArray]);
 
   return (
     <motion.div
