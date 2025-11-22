@@ -13,7 +13,7 @@ const RequiredCoursesChecklist = ({
   setCollapsed,
   summaryGroups = [] // New prop for hour requirement buckets
 }) => {
-  const [expandedTypes, setExpandedTypes] = useState(new Set(["Core Courses", "General and Basic Education Requirements"]));
+  const [expandedTypes, setExpandedTypes] = useState(new Set(["Engineering Courses (CS Major)", "University Writing Requirement"]));
   const [expandedElectives, setExpandedElectives] = useState(new Set());
 
   // Helper function to format category names
@@ -33,33 +33,37 @@ const RequiredCoursesChecklist = ({
   const inProgressCodesArray = inProgressCourses ? Array.from(inProgressCourses) : []; // Convert in-progress courses to array
   const selectedCodesArray = selectedCourses ? selectedCourses.map(c => c.code) : [];
 
-  // Map requirement types to catalog sections
+  // Map requirement types to audit-style sections
   const mapToSection = (course) => {
     const type = course.requirementType || "Other";
     const code = course.code || "";
     
-    // Map based on requirement type and course prefix
-    if (type.includes("English") || type.includes("Science") || 
-        code.startsWith("ENGL") || code.startsWith("BIOS") || 
-        code.startsWith("CHEM") || code.startsWith("PHYS") || 
-        code.startsWith("EAES") ||
-        type.includes("General Education")) {
-      return "General and Basic Education Requirements";
+    // University Writing Requirement
+    if (type.includes("English") || code.startsWith("ENGL")) {
+      return "University Writing Requirement";
     }
-    if (type.includes("Math") || type.includes("Stat") || 
-        code.startsWith("MATH") || code.startsWith("STAT") || 
-        code.startsWith("IE")) {
-      return "Required Mathematics Courses";
+    // Math Requirement (Calculus courses)
+    if ((code.startsWith("MATH 180") || code.startsWith("MATH 181") || code.startsWith("MATH 210"))) {
+      return "Math Requirement (CS Major)";
     }
-    if (type.includes("CS") || type.includes("Data/CS") || 
-        code.startsWith("CS") || code.startsWith("IDS") || 
-        code.startsWith("ENGR")) {
-      return "Core Courses";
+    // Math Electives (other math courses)
+    if (type.includes("Math") || code.startsWith("MATH") || code.startsWith("STAT") || code.startsWith("IE")) {
+      return "Math Electives (CS Major)";
+    }
+    // Science Electives
+    if (type.includes("Science") || code.startsWith("BIOS") || code.startsWith("CHEM") || 
+        code.startsWith("PHYS") || code.startsWith("EAES")) {
+      return "Science Electives (CS Major)";
+    }
+    // Engineering Courses (CS core)
+    if (type.includes("CS") || type.includes("Data/CS") || code.startsWith("CS") || 
+        code.startsWith("IDS") || code.startsWith("ENGR") || code.startsWith("ECE")) {
+      return "Engineering Courses (CS Major)";
     }
     return "Other Requirements";
   };
 
-  // Group courses by catalog section
+  // Group courses by audit section
   const coursesBySection = requiredCourses.reduce((acc, course) => {
     const section = mapToSection(course);
     if (!acc[section]) {
@@ -69,11 +73,13 @@ const RequiredCoursesChecklist = ({
     return acc;
   }, {});
 
-  // Define section order to match catalog
+  // Define section order to match audit layout
   const sectionOrder = [
-    "General and Basic Education Requirements",
-    "Core Courses", 
-    "Required Mathematics Courses",
+    "University Writing Requirement",
+    "Math Requirement (CS Major)",
+    "Math Electives (CS Major)",
+    "Science Electives (CS Major)",
+    "Engineering Courses (CS Major)",
     "Other Requirements"
   ];
 
@@ -101,18 +107,18 @@ const RequiredCoursesChecklist = ({
     });
   };
 
-  // Group electives by catalog section
+  // Group electives by audit section
   const electivesBySection = electiveCourses ? electiveCourses.reduce((acc, course) => {
     const type = course.electiveType || "Other Electives";
     let section = type;
     
-    // Map elective types to catalog sections
+    // Map elective types to audit sections
     if (type.includes("CS Electives") || type.includes("Technical")) {
-      section = "Computer Science Concentration Requirements";
+      section = "Technical Electives (CS Major)";
     } else if (type.includes("Math")) {
-      section = "Required Mathematics Courses";
+      section = "Math Electives (CS Major)";
     } else if (type.includes("Science")) {
-      section = "Science Electives";
+      section = "Science Electives (CS Major)";
     } else {
       section = "Free Electives";
     }
@@ -205,16 +211,23 @@ const RequiredCoursesChecklist = ({
         {/* Summary of Requirements */}
         {summaryGroups && summaryGroups.length > 0 && (
           <div className="mb-4 bg-blue-50 border-2 border-blue-200 rounded-lg p-3">
-            <h3 className="font-bold text-sm mb-2 text-blue-900">Summary of Requirements</h3>
-            <div className="space-y-1">
+            <h3 className="font-bold text-sm mb-3 text-blue-900">UIC Degree / Major Requirements</h3>
+            <div className="space-y-2">
               {summaryGroups.map((group, idx) => (
-                <div key={idx} className="flex justify-between text-xs">
-                  <span className="text-gray-700">{group.name}</span>
-                  <span className="font-semibold text-gray-900">
-                    {group.minHours === group.maxHours 
-                      ? group.minHours 
-                      : `${group.minHours}-${group.maxHours}`}
-                  </span>
+                <div key={idx} className="text-xs">
+                  <div className="flex justify-between items-start">
+                    <span className="font-semibold text-gray-900">{group.name}:</span>
+                    <span className="font-bold text-blue-700 ml-2">
+                      {group.minHours === group.maxHours 
+                        ? `${group.minHours} hrs` 
+                        : `${group.minHours}-${group.maxHours} hrs`}
+                    </span>
+                  </div>
+                  {group.description && (
+                    <div className="text-gray-600 mt-0.5 ml-0">
+                      {group.description}
+                    </div>
+                  )}
                 </div>
               ))}
             </div>

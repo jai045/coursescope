@@ -65,7 +65,7 @@ class handler(BaseHTTPRequestHandler):
 
             # Get summary requirement groups (credit buckets)
             cursor.execute('''
-                SELECT group_name, min_hours, max_hours, position
+                SELECT group_name, description, min_hours, max_hours, position
                 FROM major_requirement_groups
                 WHERE major_id = ?
                 ORDER BY position
@@ -75,6 +75,7 @@ class handler(BaseHTTPRequestHandler):
             for gr in groups_rows:
                 groups_summary.append({
                     'name': gr['group_name'],
+                    'description': gr['description'] if gr['description'] else '',
                     'minHours': gr['min_hours'],
                     'maxHours': gr['max_hours']
                 })

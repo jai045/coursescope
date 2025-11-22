@@ -162,6 +162,7 @@ def create_major_tables():
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             major_id INTEGER NOT NULL,
             group_name TEXT NOT NULL,
+            description TEXT,
             min_hours INTEGER,
             max_hours INTEGER,
             position INTEGER NOT NULL DEFAULT 0,
@@ -228,17 +229,33 @@ def parse_summary_groups(soup):
             except ValueError:
                 continue
         
-        # Normalize group names to match standard academic terminology
-        normalized_name = name.replace('\u00a0', ' ').strip()
-        if 'Nonengineering and General Education Requirements' in normalized_name:
-            normalized_name = 'General and Basic Education Requirements'
-        elif 'Required in the College of Engineering' in normalized_name:
-            normalized_name = 'Core Courses'
-        elif 'Technical Electives' in normalized_name:
-            normalized_name = 'Computer Science Concentration Requirements'
+        # Map to audit-style terminology with descriptions
+        original_name = name.replace('\u00a0', ' ').strip()
+        audit_name = original_name
+        description = ""
+        
+        if 'Nonengineering and General Education Requirements' in original_name:
+            audit_name = 'University Writing Requirement'
+            description = f'{min_h} credit hours total (ENGL 160 + ENGL 161 + General Education courses)'
+        elif 'Required in the College of Engineering' in original_name:
+            audit_name = 'Engineering Courses (CS Major)'
+            description = f'{min_h} credit hours required total for the CS core (orientation + CS courses, technical communication, algorithms, seminar, etc.)'
+        elif 'Technical Electives' in original_name:
+            audit_name = 'Technical Electives (CS Major)'
+            description = f'{min_h} credit hours (with the "no more than one outside CS" rule)'
+        elif 'Required Mathematics Courses' in original_name:
+            audit_name = 'Math Electives (CS Major)'
+            description = f'{min_h} credit hours (courses from approved list)'
+        elif 'Free Electives' in original_name:
+            audit_name = 'Free Electives'
+            description = f'{min_h} credit hours of any electives'
+        elif 'Total Hours' in original_name:
+            audit_name = 'Total Degree Hours'
+            description = f'{min_h} credit hours required to graduate'
         
         groups.append({
-            'name': normalized_name,
+            'name': audit_name,
+            'description': description,
             'min_hours': min_h,
             'max_hours': max_h,
             'position': position
@@ -410,9 +427,9 @@ def insert_major_requirements(conn, requirements, electives, summary_groups, maj
         try:
             cursor.execute('''
                 INSERT OR IGNORE INTO major_requirement_groups
-                (major_id, group_name, min_hours, max_hours, position)
-                VALUES (?, ?, ?, ?, ?)
-            ''', (major_id, grp['name'], grp['min_hours'], grp['max_hours'], grp['position']))
+                (major_id, group_name, description, min_hours, max_hours, position)
+                VALUES (?, ?, ?, ?, ?, ?)
+            ''', (major_id, grp['name'], grp.get('description', ''), grp['min_hours'], grp['max_hours'], grp['position']))
         except sqlite3.IntegrityError:
             pass
 
