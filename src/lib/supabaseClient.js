@@ -12,7 +12,14 @@ export const SUPABASE_ENABLED = SUPABASE_ENV_STATUS.hasUrl && SUPABASE_ENV_STATU
 
 try {
   if (!SUPABASE_ENABLED) throw new Error('Missing Supabase URL or anon key');
-  client = createClient(supabaseUrl, supabaseAnonKey);
+  client = createClient(supabaseUrl, supabaseAnonKey, {
+    auth: {
+      persistSession: true,
+      autoRefreshToken: true,
+      detectSessionInUrl: true
+    }
+  });
+  console.log('[Supabase] Client initialized', { supabaseUrl });
 } catch (err) {
   console.error('[Supabase] Initialization failed:', err.message, {
     hasUrl: SUPABASE_ENV_STATUS.hasUrl,

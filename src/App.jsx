@@ -57,6 +57,18 @@ export default function App() {
     fetchCourses();
   }, []);
 
+  // Additional debug: log session after initial mount & URL hash
+  useEffect(() => {
+    (async () => {
+      const urlHasTokens = /access_token|refresh_token/.test(window.location.hash);
+      if (urlHasTokens) {
+        console.log('[Auth Debug] URL contains tokens, ensuring session capture');
+      }
+      const { data: { session } } = await supabase.auth.getSession();
+      console.log('[Auth Debug] Initial session after mount:', session ? 'present' : 'null');
+    })();
+  }, []);
+
   // Initialize Supabase auth session and subscribe to changes
   useEffect(() => {
     let mounted = true;
