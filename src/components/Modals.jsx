@@ -330,9 +330,11 @@ export const GradeDistributionModal = ({ course, open, onClose }) => {
           )}
 
           {!loading && !error && gradeData && gradeData.has_data && (
-            <div className="flex gap-6 h-full">
-              {/* Left Side: Semester Selection */}
-              <div className="w-[320px] flex-shrink-0 bg-white border border-gray-200 rounded-xl shadow-sm p-4 overflow-y-auto">
+            <div className="flex flex-col gap-6 h-full overflow-y-auto">
+              {/* Top Panel: Semester Selection */}
+              <div className="bg-white border border-gray-200 rounded-xl shadow-sm p-4">
+                <h3 className="text-sm font-semibold text-gray-800 mb-4">Select Semester & Instructor</h3>
+                <div className="space-y-4">
                 {/* Overall Average Button */}
                 <motion.button
                   onClick={() => setSelectedDistribution(null)}
@@ -388,13 +390,14 @@ export const GradeDistributionModal = ({ course, open, onClose }) => {
                     </div>
                   ))}
                 </div>
+                </div>
               </div>
 
-              {/* Right Side: Grade Distribution Chart */}
-              <div className="flex-1 flex items-start justify-center min-h-0">
+              {/* Bottom Panel: Grade Distribution Chart */}
+              <div className="bg-white border border-gray-200 rounded-xl shadow-sm p-6">
                 {displayData && (
                 <motion.div
-                  className="space-y-3 w-full bg-white border border-gray-200 rounded-xl shadow-sm p-6"
+                  className="space-y-3 w-full"
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
                   transition={{ delay: 0.2 }}
