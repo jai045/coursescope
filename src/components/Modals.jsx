@@ -172,10 +172,7 @@ export const GradeDistributionModal = ({ course, open, onClose }) => {
   const [gradeData, setGradeData] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
-  const [selectedSemester, setSelectedSemester] = useState("average");
-  const [filterMode, setFilterMode] = useState("semester"); // "semester", "instructor", or "specific"
-  const [showAllInstructors, setShowAllInstructors] = useState(false);
-  const [searchQuery, setSearchQuery] = useState(""); // For filtering specific distributions
+  const [selectedDistribution, setSelectedDistribution] = useState(null); // Store selected {semester, instructor, index}
 
   // Helper function to format instructor name
   const formatInstructorName = (instructor) => {
@@ -185,41 +182,10 @@ export const GradeDistributionModal = ({ course, open, onClose }) => {
     return instructor;
   };
 
-  // Helper function to display instructor list with grouped unspecified and show more/less
-  const displayInstructorList = (instructorsList, showAll = false) => {
-    const specifiedInstructors = instructorsList.filter(i => i !== 'Instructor Not Specified');
-    const unspecifiedCount = instructorsList.length - specifiedInstructors.length;
-
-    const result = [];
-    const displayLimit = 10;
-    const shouldTruncate = specifiedInstructors.length > displayLimit;
-    const instructorsToShow = (showAll || !shouldTruncate) ? specifiedInstructors : specifiedInstructors.slice(0, displayLimit);
-
-    // Add specified instructors
-    instructorsToShow.forEach((instructor, idx) => {
-      result.push(
-        <span key={`specified-${idx}`} className="px-2 py-0.5 bg-gray-100 rounded-full text-gray-700">
-          {instructor}
-        </span>
-      );
-    });
-
-    // Add unspecified count if any
-    if (unspecifiedCount > 0) {
-      result.push(
-        <span key="unspecified" className="px-2 py-0.5 bg-gray-100 rounded-full text-gray-600 italic">
-          {unspecifiedCount} instructor{unspecifiedCount !== 1 ? 's' : ''} unspecified
-        </span>
-      );
-    }
-
-    return { elements: result, shouldTruncate, totalCount: specifiedInstructors.length };
-  };
-
   useEffect(() => {
     if (open && course) {
       fetchGradeData();
-      setShowAllInstructors(false); // Reset when modal opens
+      setSelectedDistribution(null); // Reset when modal opens
     }
   }, [open, course]);
 
@@ -238,9 +204,6 @@ export const GradeDistributionModal = ({ course, open, onClose }) => {
 
       const data = await response.json();
       setGradeData(data);
-      
-      // Reset to average view when data loads
-      setSelectedSemester("average");
     } catch (err) {
       console.error("Error fetching grade data:", err);
       setError(err.message);
@@ -249,129 +212,49 @@ export const GradeDistributionModal = ({ course, open, onClose }) => {
     }
   };
 
-  const getGroupedData = () => {
-    if (!gradeData || !gradeData.has_data) return null;
+  // Group distributions by semester
+  const getBySemester = () => {
+    if (!gradeData || !gradeData.has_data) return {};
 
-    if (filterMode === "semester") {
-      // Group by semester (average multiple instructors if same semester)
-      const semesterMap = new Map();
-
-      gradeData.distributions.forEach((dist) => {
-        const key = dist.semester;
-        if (!semesterMap.has(key)) {
-          semesterMap.set(key, []);
-        }
-        semesterMap.get(key).push(dist);
+    const semesterMap = {};
+    gradeData.distributions.forEach((dist, idx) => {
+      const semester = dist.semester;
+      if (!semesterMap[semester]) {
+        semesterMap[semester] = [];
+      }
+      semesterMap[semester].push({
+        ...dist,
+        instructor: formatInstructorName(dist.instructor),
+        index: idx
       });
-
-      const grouped = [];
-      semesterMap.forEach((dists, semester) => {
-        // Average all distributions for this semester
-        const totalA = dists.reduce((sum, d) => sum + d.grades.A, 0);
-        const totalB = dists.reduce((sum, d) => sum + d.grades.B, 0);
-        const totalC = dists.reduce((sum, d) => sum + d.grades.C, 0);
-        const totalD = dists.reduce((sum, d) => sum + d.grades.D, 0);
-        const totalF = dists.reduce((sum, d) => sum + d.grades.F, 0);
-        const totalW = dists.reduce((sum, d) => sum + d.grades.W, 0);
-        const totalS = dists.reduce((sum, d) => sum + d.grades.S, 0);
-        const totalU = dists.reduce((sum, d) => sum + d.grades.U, 0);
-        const totalStudents = dists.reduce((sum, d) => sum + d.total_students, 0);
-        const letterGradeTotal = totalA + totalB + totalC + totalD + totalF;
-
-        grouped.push({
-          key: semester,
-          label: semester,
-          semester: semester,
-          instructors: dists.map(d => formatInstructorName(d.instructor)).join(' • '),
-          instructorsList: dists.map(d => formatInstructorName(d.instructor)),
-          grades: { A: totalA, B: totalB, C: totalC, D: totalD, F: totalF, W: totalW, S: totalS, U: totalU },
-          percentages: {
-            A: letterGradeTotal > 0 ? Math.round((totalA / letterGradeTotal) * 1000) / 10 : 0,
-            B: letterGradeTotal > 0 ? Math.round((totalB / letterGradeTotal) * 1000) / 10 : 0,
-            C: letterGradeTotal > 0 ? Math.round((totalC / letterGradeTotal) * 1000) / 10 : 0,
-            D: letterGradeTotal > 0 ? Math.round((totalD / letterGradeTotal) * 1000) / 10 : 0,
-            F: letterGradeTotal > 0 ? Math.round((totalF / letterGradeTotal) * 1000) / 10 : 0,
-            W: totalStudents > 0 ? Math.round((totalW / totalStudents) * 1000) / 10 : 0,
-          },
-          total_students: totalStudents,
-          instructorCount: dists.length
-        });
-      });
-
-      return grouped;
-    } else {
-      // Group by instructor (average multiple semesters if same instructor)
-      const instructorMap = new Map();
-
-      gradeData.distributions.forEach((dist) => {
-        const key = formatInstructorName(dist.instructor);
-        if (!instructorMap.has(key)) {
-          instructorMap.set(key, []);
-        }
-        instructorMap.get(key).push(dist);
-      });
-
-      const grouped = [];
-      instructorMap.forEach((dists, instructor) => {
-        // Average all distributions for this instructor
-        const totalA = dists.reduce((sum, d) => sum + d.grades.A, 0);
-        const totalB = dists.reduce((sum, d) => sum + d.grades.B, 0);
-        const totalC = dists.reduce((sum, d) => sum + d.grades.C, 0);
-        const totalD = dists.reduce((sum, d) => sum + d.grades.D, 0);
-        const totalF = dists.reduce((sum, d) => sum + d.grades.F, 0);
-        const totalW = dists.reduce((sum, d) => sum + d.grades.W, 0);
-        const totalS = dists.reduce((sum, d) => sum + d.grades.S, 0);
-        const totalU = dists.reduce((sum, d) => sum + d.grades.U, 0);
-        const totalStudents = dists.reduce((sum, d) => sum + d.total_students, 0);
-        const letterGradeTotal = totalA + totalB + totalC + totalD + totalF;
-
-        grouped.push({
-          key: instructor,
-          label: instructor,
-          instructor: instructor,
-          semesters: dists.map(d => d.semester).join(' • '),
-          semestersList: dists.map(d => d.semester),
-          grades: { A: totalA, B: totalB, C: totalC, D: totalD, F: totalF, W: totalW, S: totalS, U: totalU },
-          percentages: {
-            A: letterGradeTotal > 0 ? Math.round((totalA / letterGradeTotal) * 1000) / 10 : 0,
-            B: letterGradeTotal > 0 ? Math.round((totalB / letterGradeTotal) * 1000) / 10 : 0,
-            C: letterGradeTotal > 0 ? Math.round((totalC / letterGradeTotal) * 1000) / 10 : 0,
-            D: letterGradeTotal > 0 ? Math.round((totalD / letterGradeTotal) * 1000) / 10 : 0,
-            F: letterGradeTotal > 0 ? Math.round((totalF / letterGradeTotal) * 1000) / 10 : 0,
-            W: totalStudents > 0 ? Math.round((totalW / totalStudents) * 1000) / 10 : 0,
-          },
-          total_students: totalStudents,
-          semesterCount: dists.length
-        });
-      });
-
-      return grouped;
-    }
-  };
-
-  const getAllInstructors = () => {
-    if (!gradeData || !gradeData.has_data) return [];
-
-    // Get unique instructors from all distributions
-    const instructorSet = new Set();
-    gradeData.distributions.forEach(dist => {
-      instructorSet.add(formatInstructorName(dist.instructor));
     });
 
-    return Array.from(instructorSet).sort();
+    // Sort semesters descending (most recent first)
+    const sortedSemesters = Object.keys(semesterMap).sort().reverse();
+    const sorted = {};
+    sortedSemesters.forEach(sem => {
+      sorted[sem] = semesterMap[sem].sort((a, b) => a.instructor.localeCompare(b.instructor));
+    });
+
+    return sorted;
   };
 
-  const getIndividualDistributions = () => {
-    if (!gradeData || !gradeData.has_data) return [];
-
-    return gradeData.distributions.map((dist, idx) => {
-      const letterGradeTotal = dist.grades.A + dist.grades.B + dist.grades.C + dist.grades.D + dist.grades.F;
+  const getDisplayData = () => {
+    if (!selectedDistribution) {
       return {
-        key: idx,
-        index: idx,
-        semester: dist.semester,
-        instructor: formatInstructorName(dist.instructor),
-        label: `${dist.semester} - ${formatInstructorName(dist.instructor)}`,
+        title: "Average Across All Data",
+        data: gradeData?.average,
+        subtitle: gradeData?.average ? `Based on ${gradeData.average.semesters_count} semester${gradeData.average.semesters_count !== 1 ? 's' : ''} (${gradeData.average.total_students} total students)` : null
+      };
+    }
+
+    const dist = gradeData.distributions[selectedDistribution.index];
+    const letterGradeTotal = dist.grades.A + dist.grades.B + dist.grades.C + dist.grades.D + dist.grades.F;
+    
+    return {
+      title: selectedDistribution.semester,
+      instructor: selectedDistribution.instructor,
+      data: {
         grades: dist.grades,
         percentages: {
           A: letterGradeTotal > 0 ? Math.round((dist.grades.A / letterGradeTotal) * 1000) / 10 : 0,
@@ -382,65 +265,12 @@ export const GradeDistributionModal = ({ course, open, onClose }) => {
           W: dist.total_students > 0 ? Math.round((dist.grades.W / dist.total_students) * 1000) / 10 : 0,
         },
         total_students: dist.total_students
-      };
-    }).sort((a, b) => {
-      // Sort by semester descending, then by instructor name
-      if (a.semester !== b.semester) {
-        return b.semester.localeCompare(a.semester);
-      }
-      return a.instructor.localeCompare(b.instructor);
-    });
+      },
+      subtitle: `${dist.total_students} students`
+    };
   };
 
-  const getDisplayData = () => {
-    if (!gradeData || !gradeData.has_data) return null;
-
-    if (selectedSemester === "average") {
-      return {
-        title: "Average Across All Data",
-        data: gradeData.average,
-        subtitle: `Based on ${gradeData.average.semesters_count} semester${gradeData.average.semesters_count !== 1 ? 's' : ''} (${gradeData.average.total_students} total students)`,
-        showAllInstructors: true
-      };
-    } else if (filterMode === "specific") {
-      const individuals = getIndividualDistributions();
-      const item = individuals[selectedSemester];
-      return {
-        title: item.semester,
-        data: item,
-        subtitle: null,
-        singleInstructor: item.instructor,
-        totalStudents: item.total_students
-      };
-    } else {
-      const grouped = getGroupedData();
-      const item = grouped[selectedSemester];
-
-      if (filterMode === "semester") {
-        return {
-          title: item.semester,
-          data: item,
-          subtitle: item.instructorCount > 1
-            ? `${item.total_students} students across ${item.instructorCount} instructor${item.instructorCount !== 1 ? 's' : ''}`
-            : null,
-          singleInstructor: item.instructorCount === 1 ? item.instructors : null,
-          totalStudents: item.total_students
-        };
-      } else {
-        return {
-          title: item.instructor,
-          data: item,
-          subtitle: item.semesterCount > 1
-            ? `${item.total_students} students across ${item.semesterCount} semester${item.semesterCount !== 1 ? 's' : ''}`
-            : null,
-          singleSemester: item.semesterCount === 1 ? item.semesters : null,
-          totalStudents: item.total_students
-        };
-      }
-    }
-  };
-
-  const displayData = getDisplayData();
+  const displayData = gradeData && gradeData.has_data ? getDisplayData() : null;
 
   // Get underline color based on course level
   const getUnderlineColorForGrades = (level) => {
@@ -501,152 +331,74 @@ export const GradeDistributionModal = ({ course, open, onClose }) => {
 
           {!loading && !error && gradeData && gradeData.has_data && (
             <>
-              {/* Filter Mode Toggle */}
-              <div className="flex gap-2 border-b pb-3">
-                <button
-                  onClick={() => {
-                    setFilterMode("semester");
-                    setSelectedSemester("average");
-                    setSearchQuery("");
-                  }}
-                  className={`flex-1 px-3 py-2 rounded-lg text-xs font-medium transition-colors ${
-                    filterMode === "semester"
-                      ? "bg-black text-white"
-                      : "bg-gray-100 text-gray-700 hover:bg-gray-200"
-                  }`}
-                >
-                  📅 Semester
-                </button>
-                <button
-                  onClick={() => {
-                    setFilterMode("instructor");
-                    setSelectedSemester("average");
-                    setSearchQuery("");
-                  }}
-                  className={`flex-1 px-3 py-2 rounded-lg text-xs font-medium transition-colors ${
-                    filterMode === "instructor"
-                      ? "bg-black text-white"
-                      : "bg-gray-100 text-gray-700 hover:bg-gray-200"
-                  }`}
-                >
-                  👤 Professor
-                </button>
-                <button
-                  onClick={() => {
-                    setFilterMode("specific");
-                    setSelectedSemester("average");
-                    setSearchQuery("");
-                  }}
-                  className={`flex-1 px-3 py-2 rounded-lg text-xs font-medium transition-colors ${
-                    filterMode === "specific"
-                      ? "bg-black text-white"
-                      : "bg-gray-100 text-gray-700 hover:bg-gray-200"
-                  }`}
-                >
-                  🎯 Specific
-                </button>
-              </div>
+              {/* Overall Average Button */}
+              <motion.button
+                onClick={() => setSelectedDistribution(null)}
+                className={`w-full px-4 py-3 rounded-lg text-sm font-medium transition-all ${
+                  selectedDistribution === null
+                    ? "bg-black text-white shadow-lg"
+                    : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                }`}
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.98 }}
+              >
+                📊 Overall Average
+              </motion.button>
 
-              {/* Data Selector */}
-              <div className="space-y-2">
-                <label className="text-xs font-medium text-gray-600">
-                  {filterMode === "semester" ? "Select Semester:" : filterMode === "instructor" ? "Select Professor:" : "Select Semester & Professor:"}
-                </label>
-                {filterMode === "specific" ? (
-                  <div className="space-y-2">
-                    <input
-                      type="text"
-                      placeholder="Search by semester or professor..."
-                      value={searchQuery}
-                      onChange={(e) => setSearchQuery(e.target.value)}
-                      className="w-full px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-black"
-                    />
-                    <div className="max-h-48 overflow-y-auto space-y-1 border rounded-lg p-2 bg-gray-50">
-                      <button
-                        onClick={() => setSelectedSemester("average")}
-                        className={`w-full text-left px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
-                          selectedSemester === "average"
-                            ? "bg-black text-white"
-                            : "bg-white text-gray-700 hover:bg-gray-100"
-                        }`}
-                      >
-                        📊 Overall Average
-                      </button>
-                      {getIndividualDistributions()
-                        .filter(item => 
-                          searchQuery === "" || 
-                          item.label.toLowerCase().includes(searchQuery.toLowerCase())
-                        )
-                        .map((item) => (
-                          <button
-                            key={item.index}
-                            onClick={() => setSelectedSemester(item.index)}
-                            className={`w-full text-left px-3 py-2 rounded-lg text-xs transition-colors ${
-                              selectedSemester === item.index
-                                ? "bg-black text-white"
-                                : "bg-white text-gray-700 hover:bg-gray-100"
+              {/* Semester-based Selection */}
+              <div className="space-y-4">
+                {Object.entries(getBySemester()).map(([semester, distributions], semesterIdx) => (
+                  <div key={semester} className="space-y-2">
+                    <h3 className="text-sm font-semibold text-gray-700 px-1">
+                      {semester}
+                    </h3>
+                    <div className="flex flex-wrap gap-2">
+                      {distributions.map((dist, distIdx) => {
+                        const isSelected = 
+                          selectedDistribution?.semester === dist.semester &&
+                          selectedDistribution?.instructor === dist.instructor &&
+                          selectedDistribution?.index === dist.index;
+                        
+                        return (
+                          <motion.button
+                            key={distIdx}
+                            onClick={() => setSelectedDistribution({
+                              semester: dist.semester,
+                              instructor: dist.instructor,
+                              index: dist.index
+                            })}
+                            className={`px-3 py-1.5 rounded-full text-xs font-medium transition-all ${
+                              isSelected
+                                ? "bg-rose-500 text-white shadow-md"
+                                : "bg-rose-50 text-rose-700 border border-rose-200 hover:bg-rose-100"
                             }`}
+                            whileHover={{ scale: 1.05, y: -2 }}
+                            whileTap={{ scale: 0.95 }}
+                            initial={{ opacity: 0, y: 10 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            transition={{ delay: semesterIdx * 0.05 + distIdx * 0.02 }}
                           >
-                            <div className="font-medium">{item.semester}</div>
-                            <div className="text-[10px] opacity-80 mt-0.5">{item.instructor} • {item.total_students} students</div>
-                          </button>
-                        ))}
+                            Instructor: {dist.instructorName}
+                          </motion.button>
+                        );
+                      })}
                     </div>
                   </div>
-                ) : (
-                  <div className="flex flex-wrap gap-2">
-                    <button
-                      onClick={() => setSelectedSemester("average")}
-                      className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
-                        selectedSemester === "average"
-                          ? "bg-black text-white"
-                          : "bg-gray-100 text-gray-700 hover:bg-gray-200"
-                      }`}
-                    >
-                      📊 Overall Average
-                    </button>
-                    {getGroupedData()?.map((item, idx) => (
-                      <button
-                        key={idx}
-                        onClick={() => setSelectedSemester(idx)}
-                        className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
-                          selectedSemester === idx
-                            ? "bg-black text-white"
-                            : "bg-gray-100 text-gray-700 hover:bg-gray-200"
-                        }`}
-                      >
-                        {item.label}
-                      </button>
-                    ))}
-                  </div>
-                )}
+                ))}
               </div>
 
               {/* Grade Distribution Chart */}
               {displayData && (
-                <div className="space-y-3">
+                <motion.div
+                  className="space-y-3 border-t pt-4"
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  transition={{ delay: 0.2 }}
+                >
                   <div>
                     <h4 className="font-semibold text-gray-900">{displayData.title}</h4>
                     {displayData.subtitle && (
                       <p className="text-xs text-gray-600 mt-0.5">{displayData.subtitle}</p>
-                    )}
-                    {displayData.singleInstructor && (
-                      <div className="flex items-center gap-2 mt-1 text-xs">
-                        <span className="text-gray-600">{displayData.totalStudents} students</span>
-                        <span className="text-gray-400">•</span>
-                        <span className="px-2 py-0.5 bg-blue-50 border border-blue-200 rounded-full text-gray-700">
-                          {displayData.singleInstructor}
-                        </span>
-                      </div>
-                    )}
-                    {displayData.singleSemester && (
-                      <div className="flex items-center gap-2 mt-1 text-xs">
-                        <span className="text-gray-600">{displayData.totalStudents} students</span>
-                        <span className="text-gray-400">•</span>
-                        <span className="px-2 py-0.5 bg-purple-50 border border-purple-200 rounded-full text-gray-700">
-                          {displayData.singleSemester}
-                        </span>
-                      </div>
                     )}
                   </div>
 
@@ -711,116 +463,7 @@ export const GradeDistributionModal = ({ course, open, onClose }) => {
                       </Pill>
                     )}
                   </div>
-
-                  {/* Show additional info for grouped data and overall average */}
-                  <motion.div
-                    className="overflow-hidden"
-                    initial={false}
-                    animate={{
-                      height: (selectedSemester === "average" && displayData?.showAllInstructors) ||
-                              (selectedSemester !== "average" &&
-                               ((filterMode === "semester" && getGroupedData()[selectedSemester]?.instructorCount > 1) ||
-                                (filterMode === "instructor" && getGroupedData()[selectedSemester]?.semesterCount > 1)))
-                        ? "auto"
-                        : 0
-                    }}
-                    transition={{
-                      duration: 0.4,
-                      ease: [0.4, 0.0, 0.2, 1],
-                      delay: (selectedSemester === "average" && displayData?.showAllInstructors) ||
-                             (selectedSemester !== "average" &&
-                              ((filterMode === "semester" && getGroupedData()[selectedSemester]?.instructorCount > 1) ||
-                               (filterMode === "instructor" && getGroupedData()[selectedSemester]?.semesterCount > 1)))
-                        ? 0
-                        : 0.2
-                    }}
-                  >
-                    <div className="text-xs text-gray-600 pt-2 border-t">
-                      <div className="pb-2">
-                        <AnimatePresence mode="wait">
-                          {selectedSemester === "average" && displayData?.showAllInstructors && (
-                            <motion.div
-                              key="all-instructors"
-                              initial={{ opacity: 0 }}
-                              animate={{ opacity: 1 }}
-                              exit={{ opacity: 0 }}
-                              transition={{ duration: 0.2 }}
-                            >
-                              <div className="flex flex-wrap gap-2 items-center">
-                                <span className="font-medium text-gray-700">All Instructors:</span>
-                                {(() => {
-                                  const instructorList = getAllInstructors();
-                                  const { elements, shouldTruncate, totalCount } = displayInstructorList(instructorList, showAllInstructors);
-                                  return (
-                                    <>
-                                      {elements}
-                                      {shouldTruncate && (
-                                        <button
-                                          onClick={() => setShowAllInstructors(!showAllInstructors)}
-                                          className="px-2 py-0.5 bg-blue-100 hover:bg-blue-200 rounded-full text-blue-700 font-medium transition-colors"
-                                        >
-                                          {showAllInstructors ? 'Show Less' : `Show ${totalCount - 10} More`}
-                                        </button>
-                                      )}
-                                    </>
-                                  );
-                                })()}
-                              </div>
-                            </motion.div>
-                          )}
-                          {selectedSemester !== "average" && filterMode === "semester" && getGroupedData()[selectedSemester]?.instructorCount > 1 && (
-                            <motion.div
-                              key={`instructors-${selectedSemester}`}
-                              initial={{ opacity: 0 }}
-                              animate={{ opacity: 1 }}
-                              exit={{ opacity: 0 }}
-                              transition={{ duration: 0.2 }}
-                            >
-                              <div className="flex flex-wrap gap-2 items-center">
-                                <span className="font-medium text-gray-700">Instructors:</span>
-                                {(() => {
-                                  const instructorList = getGroupedData()[selectedSemester].instructorsList;
-                                  const { elements, shouldTruncate, totalCount } = displayInstructorList(instructorList, showAllInstructors);
-                                  return (
-                                    <>
-                                      {elements}
-                                      {shouldTruncate && (
-                                        <button
-                                          onClick={() => setShowAllInstructors(!showAllInstructors)}
-                                          className="px-2 py-0.5 bg-blue-100 hover:bg-blue-200 rounded-full text-blue-700 font-medium transition-colors"
-                                        >
-                                          {showAllInstructors ? 'Show Less' : `Show ${totalCount - 10} More`}
-                                        </button>
-                                      )}
-                                    </>
-                                  );
-                                })()}
-                              </div>
-                            </motion.div>
-                          )}
-                          {selectedSemester !== "average" && filterMode === "instructor" && getGroupedData()[selectedSemester]?.semesterCount > 1 && (
-                            <motion.div
-                              key={`semesters-${selectedSemester}`}
-                              initial={{ opacity: 0 }}
-                              animate={{ opacity: 1 }}
-                              exit={{ opacity: 0 }}
-                              transition={{ duration: 0.2 }}
-                            >
-                              <div className="flex flex-wrap gap-2 items-center">
-                                <span className="font-medium text-gray-700">Semesters:</span>
-                                {getGroupedData()[selectedSemester].semestersList.map((semester, idx) => (
-                                  <span key={idx} className="px-2 py-0.5 bg-gray-100 rounded-full text-gray-700">
-                                    {semester}
-                                  </span>
-                                ))}
-                              </div>
-                            </motion.div>
-                          )}
-                        </AnimatePresence>
-                      </div>
-                    </div>
-                  </motion.div>
-                </div>
+                </motion.div>
               )}
             </>
           )}
