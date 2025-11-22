@@ -305,7 +305,7 @@ export const GradeDistributionModal = ({ course, open, onClose }) => {
       title={customTitle}
     >
       {course && (
-        <div className="space-y-4 h-full flex flex-col">
+        <>
           {loading && (
             <div className="text-center py-8">
               <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900"></div>
@@ -330,7 +330,7 @@ export const GradeDistributionModal = ({ course, open, onClose }) => {
           )}
 
           {!loading && !error && gradeData && gradeData.has_data && (
-            <div className="flex gap-6 flex-1 min-h-0">
+            <div className="flex gap-6 h-full">
               {/* Left Side: Semester Selection */}
               <div className="w-[300px] flex-shrink-0 space-y-4 overflow-y-auto pr-4 border-r">
                 {/* Overall Average Button */}
@@ -472,7 +472,7 @@ export const GradeDistributionModal = ({ course, open, onClose }) => {
               </div>
             </div>
           )}
-        </div>
+        </>
       )}
     </ModalShell>
   );

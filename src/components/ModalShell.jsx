@@ -39,7 +39,7 @@ const ModalShell = ({ open, onClose, title, children }) => (
               ×
             </motion.button>
           </div>
-          <div className="flex-1 min-h-0 flex flex-col">
+          <div className="flex-1 min-h-0">
             {children}
           </div>
         </motion.div>
