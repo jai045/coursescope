@@ -330,29 +330,31 @@ export const GradeDistributionModal = ({ course, open, onClose }) => {
           )}
 
           {!loading && !error && gradeData && gradeData.has_data && (
-            <>
-              {/* Overall Average Button */}
-              <motion.button
-                onClick={() => setSelectedDistribution(null)}
-                className={`w-full px-4 py-3 rounded-lg text-sm font-medium transition-all ${
-                  selectedDistribution === null
-                    ? "bg-black text-white shadow-lg"
-                    : "bg-gray-100 text-gray-700 hover:bg-gray-200"
-                }`}
-                whileHover={{ scale: 1.02 }}
-                whileTap={{ scale: 0.98 }}
-              >
-                📊 Overall Average
-              </motion.button>
+            <div className="grid grid-cols-[300px_1fr] gap-6 h-full">
+              {/* Left Side: Semester Selection */}
+              <div className="space-y-4 overflow-y-auto pr-4 border-r">
+                {/* Overall Average Button */}
+                <motion.button
+                  onClick={() => setSelectedDistribution(null)}
+                  className={`w-full px-4 py-3 rounded-lg text-sm font-medium transition-all ${
+                    selectedDistribution === null
+                      ? "bg-black text-white shadow-lg"
+                      : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                  }`}
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.98 }}
+                >
+                  📊 Overall Average
+                </motion.button>
 
-              {/* Semester-based Selection */}
-              <div className="space-y-4">
-                {Object.entries(getBySemester()).map(([semester, distributions], semesterIdx) => (
-                  <div key={semester} className="space-y-2">
-                    <h3 className="text-sm font-semibold text-gray-700 px-1">
-                      {semester}
-                    </h3>
-                    <div className="flex flex-wrap gap-2">
+                {/* Semester-based Selection */}
+                <div className="space-y-4">
+                  {Object.entries(getBySemester()).map(([semester, distributions], semesterIdx) => (
+                    <div key={semester} className="space-y-2">
+                      <h3 className="text-sm font-semibold text-gray-700 px-1">
+                        {semester}
+                      </h3>
+                      <div className="flex flex-wrap gap-2">
                       {distributions.map((dist, distIdx) => {
                         const isSelected = 
                           selectedDistribution?.semester === dist.semester &&
@@ -378,19 +380,21 @@ export const GradeDistributionModal = ({ course, open, onClose }) => {
                             animate={{ opacity: 1, y: 0 }}
                             transition={{ delay: semesterIdx * 0.05 + distIdx * 0.02 }}
                           >
-                            Instructor: {dist.instructorName}
+                            Instructor: {dist.instructor}
                           </motion.button>
                         );
                       })}
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  ))}
+                </div>
               </div>
 
-              {/* Grade Distribution Chart */}
-              {displayData && (
+              {/* Right Side: Grade Distribution Chart */}
+              <div className="overflow-y-auto">
+                {displayData && (
                 <motion.div
-                  className="space-y-3 border-t pt-4"
+                  className="space-y-3"
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
                   transition={{ delay: 0.2 }}
@@ -464,8 +468,9 @@ export const GradeDistributionModal = ({ course, open, onClose }) => {
                     )}
                   </div>
                 </motion.div>
-              )}
-            </>
+                )}
+              </div>
+            </div>
           )}
         </div>
       )}
