@@ -173,8 +173,9 @@ export const GradeDistributionModal = ({ course, open, onClose }) => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [selectedSemester, setSelectedSemester] = useState("average");
-  const [filterMode, setFilterMode] = useState("semester"); // "semester" or "instructor"
+  const [filterMode, setFilterMode] = useState("semester"); // "semester", "instructor", or "specific"
   const [showAllInstructors, setShowAllInstructors] = useState(false);
+  const [searchQuery, setSearchQuery] = useState(""); // For filtering specific distributions
 
   // Helper function to format instructor name
   const formatInstructorName = (instructor) => {
@@ -360,6 +361,37 @@ export const GradeDistributionModal = ({ course, open, onClose }) => {
     return Array.from(instructorSet).sort();
   };
 
+  const getIndividualDistributions = () => {
+    if (!gradeData || !gradeData.has_data) return [];
+
+    return gradeData.distributions.map((dist, idx) => {
+      const letterGradeTotal = dist.grades.A + dist.grades.B + dist.grades.C + dist.grades.D + dist.grades.F;
+      return {
+        key: idx,
+        index: idx,
+        semester: dist.semester,
+        instructor: formatInstructorName(dist.instructor),
+        label: `${dist.semester} - ${formatInstructorName(dist.instructor)}`,
+        grades: dist.grades,
+        percentages: {
+          A: letterGradeTotal > 0 ? Math.round((dist.grades.A / letterGradeTotal) * 1000) / 10 : 0,
+          B: letterGradeTotal > 0 ? Math.round((dist.grades.B / letterGradeTotal) * 1000) / 10 : 0,
+          C: letterGradeTotal > 0 ? Math.round((dist.grades.C / letterGradeTotal) * 1000) / 10 : 0,
+          D: letterGradeTotal > 0 ? Math.round((dist.grades.D / letterGradeTotal) * 1000) / 10 : 0,
+          F: letterGradeTotal > 0 ? Math.round((dist.grades.F / letterGradeTotal) * 1000) / 10 : 0,
+          W: dist.total_students > 0 ? Math.round((dist.grades.W / dist.total_students) * 1000) / 10 : 0,
+        },
+        total_students: dist.total_students
+      };
+    }).sort((a, b) => {
+      // Sort by semester descending, then by instructor name
+      if (a.semester !== b.semester) {
+        return b.semester.localeCompare(a.semester);
+      }
+      return a.instructor.localeCompare(b.instructor);
+    });
+  };
+
   const getDisplayData = () => {
     if (!gradeData || !gradeData.has_data) return null;
 
@@ -369,6 +401,16 @@ export const GradeDistributionModal = ({ course, open, onClose }) => {
         data: gradeData.average,
         subtitle: `Based on ${gradeData.average.semesters_count} semester${gradeData.average.semesters_count !== 1 ? 's' : ''} (${gradeData.average.total_students} total students)`,
         showAllInstructors: true
+      };
+    } else if (filterMode === "specific") {
+      const individuals = getIndividualDistributions();
+      const item = individuals[selectedSemester];
+      return {
+        title: item.semester,
+        data: item,
+        subtitle: null,
+        singleInstructor: item.instructor,
+        totalStudents: item.total_students
       };
     } else {
       const grouped = getGroupedData();
@@ -465,60 +507,119 @@ export const GradeDistributionModal = ({ course, open, onClose }) => {
                   onClick={() => {
                     setFilterMode("semester");
                     setSelectedSemester("average");
+                    setSearchQuery("");
                   }}
-                  className={`flex-1 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                  className={`flex-1 px-3 py-2 rounded-lg text-xs font-medium transition-colors ${
                     filterMode === "semester"
                       ? "bg-black text-white"
                       : "bg-gray-100 text-gray-700 hover:bg-gray-200"
                   }`}
                 >
-                  📅 By Semester
+                  📅 Semester
                 </button>
                 <button
                   onClick={() => {
                     setFilterMode("instructor");
                     setSelectedSemester("average");
+                    setSearchQuery("");
                   }}
-                  className={`flex-1 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                  className={`flex-1 px-3 py-2 rounded-lg text-xs font-medium transition-colors ${
                     filterMode === "instructor"
                       ? "bg-black text-white"
                       : "bg-gray-100 text-gray-700 hover:bg-gray-200"
                   }`}
                 >
-                  👤 By Instructor
+                  👤 Professor
+                </button>
+                <button
+                  onClick={() => {
+                    setFilterMode("specific");
+                    setSelectedSemester("average");
+                    setSearchQuery("");
+                  }}
+                  className={`flex-1 px-3 py-2 rounded-lg text-xs font-medium transition-colors ${
+                    filterMode === "specific"
+                      ? "bg-black text-white"
+                      : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                  }`}
+                >
+                  🎯 Specific
                 </button>
               </div>
 
               {/* Data Selector */}
               <div className="space-y-2">
                 <label className="text-xs font-medium text-gray-600">
-                  {filterMode === "semester" ? "Select Semester:" : "Select Instructor:"}
+                  {filterMode === "semester" ? "Select Semester:" : filterMode === "instructor" ? "Select Professor:" : "Select Semester & Professor:"}
                 </label>
-                <div className="flex flex-wrap gap-2">
-                  <button
-                    onClick={() => setSelectedSemester("average")}
-                    className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
-                      selectedSemester === "average"
-                        ? "bg-black text-white"
-                        : "bg-gray-100 text-gray-700 hover:bg-gray-200"
-                    }`}
-                  >
-                    📊 Overall Average
-                  </button>
-                  {getGroupedData()?.map((item, idx) => (
+                {filterMode === "specific" ? (
+                  <div className="space-y-2">
+                    <input
+                      type="text"
+                      placeholder="Search by semester or professor..."
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      className="w-full px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-black"
+                    />
+                    <div className="max-h-48 overflow-y-auto space-y-1 border rounded-lg p-2 bg-gray-50">
+                      <button
+                        onClick={() => setSelectedSemester("average")}
+                        className={`w-full text-left px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                          selectedSemester === "average"
+                            ? "bg-black text-white"
+                            : "bg-white text-gray-700 hover:bg-gray-100"
+                        }`}
+                      >
+                        📊 Overall Average
+                      </button>
+                      {getIndividualDistributions()
+                        .filter(item => 
+                          searchQuery === "" || 
+                          item.label.toLowerCase().includes(searchQuery.toLowerCase())
+                        )
+                        .map((item) => (
+                          <button
+                            key={item.index}
+                            onClick={() => setSelectedSemester(item.index)}
+                            className={`w-full text-left px-3 py-2 rounded-lg text-xs transition-colors ${
+                              selectedSemester === item.index
+                                ? "bg-black text-white"
+                                : "bg-white text-gray-700 hover:bg-gray-100"
+                            }`}
+                          >
+                            <div className="font-medium">{item.semester}</div>
+                            <div className="text-[10px] opacity-80 mt-0.5">{item.instructor} • {item.total_students} students</div>
+                          </button>
+                        ))}
+                    </div>
+                  </div>
+                ) : (
+                  <div className="flex flex-wrap gap-2">
                     <button
-                      key={idx}
-                      onClick={() => setSelectedSemester(idx)}
+                      onClick={() => setSelectedSemester("average")}
                       className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
-                        selectedSemester === idx
+                        selectedSemester === "average"
                           ? "bg-black text-white"
                           : "bg-gray-100 text-gray-700 hover:bg-gray-200"
                       }`}
                     >
-                      {item.label}
+                      📊 Overall Average
                     </button>
-                  ))}
-                </div>
+                    {getGroupedData()?.map((item, idx) => (
+                      <button
+                        key={idx}
+                        onClick={() => setSelectedSemester(idx)}
+                        className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+                          selectedSemester === idx
+                            ? "bg-black text-white"
+                            : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                        }`}
+                      >
+                        {item.label}
+                      </button>
+                    ))}
+                  </div>
+                )}
               </div>
 
               {/* Grade Distribution Chart */}
