@@ -13,6 +13,7 @@ import MajorSelection from "./components/MajorSelection";
 import DiagnosticPanel from "./components/DiagnosticPanel";
 import RequiredCoursesChecklist from "./components/RequiredCoursesChecklist";
 import UploadAudit from "./components/UploadAudit";
+import OAuthDebugBanner from "./components/OAuthDebugBanner";
 import { useDebounce } from "./hooks/useDebounce";
 import { loadUserState, saveUserState } from "./lib/userState";
 
@@ -106,6 +107,7 @@ export default function App() {
         console.log('🔐 Ignoring INITIAL_SESSION without session');
         return;
       }
+            <OAuthDebugBanner />
       // On SIGNED_IN after OAuth, force a fresh session fetch (handles race)
       if (_event === 'SIGNED_IN') {
         const fresh = await supabase.auth.getSession();
