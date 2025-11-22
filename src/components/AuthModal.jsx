@@ -17,20 +17,12 @@ export default function AuthModal({ isOpen, mode = "login", onClose, onSuccess, 
         const { data, error } = await supabase.auth.signUp({ email, password });
         if (error) throw error;
         onSuccess?.(data?.user || null);
-        // Close modal and reload page
-        setTimeout(() => {
-          onClose?.();
-          window.location.href = '/';
-        }, 100);
+        onClose?.();
       } else {
         const { data, error } = await supabase.auth.signInWithPassword({ email, password });
         if (error) throw error;
         onSuccess?.(data?.user || null);
-        // Close modal and reload page
-        setTimeout(() => {
-          onClose?.();
-          window.location.href = '/';
-        }, 100);
+        onClose?.();
       }
     } catch (err) {
       setError(err.message || "Authentication failed");
