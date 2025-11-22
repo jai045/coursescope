@@ -1,4 +1,5 @@
 import clsx from "clsx";
+import { motion } from "framer-motion";
 
 export const Pill = ({ children, type = "default", value }) => {
   const getColorClasses = () => {
@@ -61,12 +62,16 @@ export const Pill = ({ children, type = "default", value }) => {
   };
 
   return (
-    <span className={clsx(
-      "px-2 py-0.5 rounded-full text-xs border",
-      getColorClasses()
-    )}>
+    <motion.span 
+      className={clsx(
+        "px-2 py-0.5 rounded-full text-xs border",
+        getColorClasses()
+      )}
+      whileHover={{ scale: 1.05, y: -1 }}
+      transition={{ type: "spring", stiffness: 400, damping: 10 }}
+    >
       {children}
-    </span>
+    </motion.span>
   );
 };
 
@@ -182,15 +187,18 @@ export const Chip = ({ active, onClick, children, title, type = "default" }) => 
   const colors = getColorClasses();
   
   return (
-    <button
+    <motion.button
       title={title}
       onClick={onClick}
       className={clsx(
         "px-3 py-1 rounded-full text-sm border transition",
         active ? colors.active : colors.inactive
       )}
+      whileHover={{ scale: 1.08, y: -2 }}
+      whileTap={{ scale: 0.95 }}
+      transition={{ type: "spring", stiffness: 400, damping: 15 }}
     >
       {children}
-    </button>
+    </motion.button>
   );
 };

@@ -29,21 +29,41 @@ const PlanSummary = ({ selected, onRemove }) => {
   };
 
   return (
-    <section className="space-y-3">
-      <div>
+    <motion.section 
+      className="space-y-3"
+      initial={{ opacity: 0, x: 20 }}
+      animate={{ opacity: 1, x: 0 }}
+      transition={{ duration: 0.4, ease: "easeOut" }}
+    >
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ delay: 0.1, duration: 0.3 }}
+      >
         <h2 className="text-lg font-semibold">Plan Summary</h2>
         <div className="mt-2 flex flex-wrap gap-2">
           <Pill>Total Credits: {totalCredits}</Pill>
           <Pill>Balance: {workload}</Pill>
         </div>
-      </div>
+      </motion.div>
       {selected.length === 0 ? (
         <div className="rounded-xl border bg-white p-6 text-sm text-gray-600">
           Your plan is empty. Add courses from the Eligible list to see them
           here.
         </div>
       ) : (
-        <div className="grid gap-3 md:grid-cols-2">
+        <motion.div 
+          className="grid gap-3 md:grid-cols-2"
+          variants={{
+            hidden: { opacity: 0 },
+            show: {
+              opacity: 1,
+              transition: { staggerChildren: 0.05 }
+            }
+          }}
+          initial="hidden"
+          animate="show"
+        >
           <AnimatePresence mode="popLayout">
             {selected.map((c) => (
               <motion.div
@@ -81,9 +101,9 @@ const PlanSummary = ({ selected, onRemove }) => {
               </motion.div>
             ))}
           </AnimatePresence>
-        </div>
+        </motion.div>
       )}
-    </section>
+    </motion.section>
   );
 };
 

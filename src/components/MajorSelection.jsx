@@ -71,22 +71,50 @@ const MajorSelection = ({ onSelectMajor, selectedMajor }) => {
   }
 
   return (
-    <div className="space-y-6">
-      <div className="text-center">
+    <motion.div 
+      className="space-y-6"
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.5 }}
+    >
+      <motion.div 
+        className="text-center"
+        initial={{ opacity: 0, y: -10 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.1, duration: 0.4 }}
+      >
         <h1 className="text-3xl font-bold mb-2">Choose Your Major</h1>
         <p className="text-gray-600">
           Select your major and concentration to see your course requirements
         </p>
-      </div>
+      </motion.div>
 
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-        {majors.map((major) => (
+      <motion.div 
+        className="grid gap-4 md:grid-cols-2 lg:grid-cols-3"
+        variants={{
+          hidden: { opacity: 0 },
+          show: {
+            opacity: 1,
+            transition: {
+              staggerChildren: 0.08
+            }
+          }
+        }}
+        initial="hidden"
+        animate="show"
+      >
+        {majors.map((major, idx) => (
           <motion.button
             key={major.id}
             onClick={() => onSelectMajor(major)}
-            className="text-left p-6 rounded-2xl border-2 bg-white hover:border-black transition-all"
-            whileHover={{ scale: 1.02 }}
-            whileTap={{ scale: 0.98 }}
+            className="text-left p-6 rounded-2xl border-2 bg-white hover:border-black transition-all hover:shadow-lg"
+            variants={{
+              hidden: { opacity: 0, y: 20 },
+              show: { opacity: 1, y: 0 }
+            }}
+            whileHover={{ scale: 1.03, y: -4 }}
+            whileTap={{ scale: 0.97 }}
+            transition={{ type: "spring", stiffness: 300, damping: 20 }}
           >
             <div className="flex items-start justify-between mb-3">
               <div className="h-12 w-12 rounded-xl bg-black text-white grid place-items-center font-bold">
@@ -103,7 +131,7 @@ const MajorSelection = ({ onSelectMajor, selectedMajor }) => {
             <p className="text-xs text-gray-500">{major.description}</p>
           </motion.button>
         ))}
-      </div>
+      </motion.div>
 
       {selectedMajor && (
         <motion.div
@@ -119,7 +147,7 @@ const MajorSelection = ({ onSelectMajor, selectedMajor }) => {
           </button>
         </motion.div>
       )}
-    </div>
+    </motion.div>
   );
 };
 

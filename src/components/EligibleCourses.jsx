@@ -1,4 +1,5 @@
 import { useState, useMemo } from "react";
+import { motion } from "framer-motion";
 import CourseCard from "./CourseCard";
 import { ChevronDown, ChevronRight } from "lucide-react";
 
@@ -90,15 +91,25 @@ const EligibleCourses = ({ courses, allCourses, requiredCourses, electiveCourses
   };
 
   return (
-    <section className="space-y-3">
-      <div className="flex items-center justify-between">
+    <motion.section 
+      className="space-y-3"
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.5, ease: "easeOut" }}
+    >
+      <motion.div 
+        className="flex items-center justify-between"
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ delay: 0.1, duration: 0.3 }}
+      >
         <h2 className="text-lg font-semibold">
           {skippedPlanning ? "All Courses" : "Eligible Courses"}
         </h2>
         <span className="text-sm text-gray-500">
           {allAvailableCourses.length} total result{allAvailableCourses.length !== 1 ? "s" : ""}
         </span>
-      </div>
+      </motion.div>
 
       {allAvailableCourses.length === 0 ? (
         <div className="rounded-xl border bg-white p-6 text-sm text-gray-600">
@@ -111,7 +122,7 @@ const EligibleCourses = ({ courses, allCourses, requiredCourses, electiveCourses
           {renderSection(skippedPlanning ? "All Courses" : "All Available Courses", allAvailableCourses, otherExpanded, setOtherExpanded, true)}
         </div>
       )}
-    </section>
+    </motion.section>
   );
 };
 

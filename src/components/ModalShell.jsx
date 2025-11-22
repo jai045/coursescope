@@ -8,25 +8,36 @@ const ModalShell = ({ open, onClose, title, children }) => (
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
+        transition={{ duration: 0.2 }}
       >
-        <div className="absolute inset-0 bg-black/40" onClick={onClose} />
+        <motion.div 
+          className="absolute inset-0 bg-black/40" 
+          onClick={onClose}
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+        />
         <motion.div
           role="dialog"
           aria-modal="true"
           className="relative max-w-2xl w-[92%] max-h-[90vh] bg-white rounded-2xl shadow-xl p-6 overflow-y-auto"
-          initial={{ y: 20, opacity: 0 }}
-          animate={{ y: 0, opacity: 1 }}
-          exit={{ y: 10, opacity: 0 }}
+          initial={{ scale: 0.9, opacity: 0, y: 20 }}
+          animate={{ scale: 1, opacity: 1, y: 0 }}
+          exit={{ scale: 0.95, opacity: 0, y: 10 }}
+          transition={{ type: "spring", stiffness: 300, damping: 25 }}
         >
           <div className="flex items-center justify-between mb-4">
             <h3 className="text-xl font-semibold">{title}</h3>
-            <button
+            <motion.button
               aria-label="Close"
-              className="h-8 w-8 rounded-full hover:bg-gray-100 grid place-items-center"
+              className="h-8 w-8 rounded-full hover:bg-gray-100 grid place-items-center text-2xl leading-none"
               onClick={onClose}
+              whileHover={{ scale: 1.1, rotate: 90 }}
+              whileTap={{ scale: 0.9 }}
+              transition={{ type: "spring", stiffness: 400, damping: 15 }}
             >
               ×
-            </button>
+            </motion.button>
           </div>
           {children}
         </motion.div>

@@ -1,4 +1,5 @@
 import { Chip, Pill } from "./ui";
+import { motion } from "framer-motion";
 
 const LEVELS = [100, 200, 300, 400];
 const DIFFICULTIES = ["Light", "Moderate", "Challenging"];
@@ -32,7 +33,12 @@ const FilterBar = ({
   const anyActive = !!(search || levelFilters.size || difficultyFilters.size || creditsFilters.size);
   
   return (
-    <div className="bg-white rounded-2xl border shadow-sm p-3 md:p-4">
+    <motion.div 
+      className="bg-white rounded-2xl border shadow-sm p-3 md:p-4"
+      initial={{ opacity: 0, y: -10 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.4, ease: "easeOut" }}
+    >
       <div className="grid gap-3 md:grid-cols-4">
         <div className="col-span-1">
           <label className="text-xs font-medium text-gray-600">Search</label>
@@ -95,7 +101,13 @@ const FilterBar = ({
         </div>
       </div>
       {anyActive && (
-        <div className="pt-3 flex items-center justify-between">
+        <motion.div 
+          className="pt-3 flex items-center justify-between"
+          initial={{ opacity: 0, height: 0 }}
+          animate={{ opacity: 1, height: "auto" }}
+          exit={{ opacity: 0, height: 0 }}
+          transition={{ duration: 0.3 }}
+        >
           <div className="flex flex-wrap gap-2 text-xs">
             {search && <Pill>Search: "{search}"</Pill>}
             {[...creditsFilters].map((c) => (
@@ -108,15 +120,17 @@ const FilterBar = ({
               <Pill key={d}>Difficulty: {d}</Pill>
             ))}
           </div>
-          <button
+          <motion.button
             onClick={clearAll}
             className="text-sm underline text-gray-600 hover:text-black"
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
           >
             Clear all
-          </button>
-        </div>
+          </motion.button>
+        </motion.div>
       )}
-    </div>
+    </motion.div>
   );
 };
 
