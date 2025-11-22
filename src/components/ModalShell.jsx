@@ -20,7 +20,7 @@ const ModalShell = ({ open, onClose, title, children }) => (
         <motion.div
           role="dialog"
           aria-modal="true"
-          className="relative max-w-6xl w-[95%] max-h-[90vh] bg-white rounded-2xl shadow-xl p-6 overflow-hidden flex flex-col"
+          className="relative max-w-6xl w-[95%] max-h-[90vh] bg-gray-50 rounded-2xl shadow-xl p-6 overflow-hidden flex flex-col"
           initial={{ scale: 0.9, opacity: 0, y: 20 }}
           animate={{ scale: 1, opacity: 1, y: 0 }}
           exit={{ scale: 0.95, opacity: 0, y: 10 }}

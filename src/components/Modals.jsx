@@ -332,7 +332,7 @@ export const GradeDistributionModal = ({ course, open, onClose }) => {
           {!loading && !error && gradeData && gradeData.has_data && (
             <div className="flex gap-6 h-full">
               {/* Left Side: Semester Selection */}
-              <div className="w-[300px] flex-shrink-0 space-y-4 overflow-y-auto pr-4 border-r">
+              <div className="w-[320px] flex-shrink-0 bg-white border border-gray-200 rounded-xl shadow-sm p-4 overflow-y-auto">
                 {/* Overall Average Button */}
                 <motion.button
                   onClick={() => setSelectedDistribution(null)}
@@ -391,10 +391,10 @@ export const GradeDistributionModal = ({ course, open, onClose }) => {
               </div>
 
               {/* Right Side: Grade Distribution Chart */}
-              <div className="flex-1 flex items-start justify-center min-h-0 py-2">
+              <div className="flex-1 flex items-start justify-center min-h-0">
                 {displayData && (
                 <motion.div
-                  className="space-y-3 w-full max-w-3xl"
+                  className="space-y-3 w-full bg-white border border-gray-200 rounded-xl shadow-sm p-6"
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
                   transition={{ delay: 0.2 }}
