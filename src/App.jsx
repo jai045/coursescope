@@ -91,7 +91,20 @@ export default function App() {
       }
     })();
     const { data: listener } = supabase.auth.onAuthStateChange(async (_event, session) => {
-      console.log('🔐 Auth state changed:', _event);
+      console.log('🔐 Auth state changed:', _event, { hasSession: !!session });
+      // Ignore INITIAL_SESSION with null session (avoids false sign-out)
+      if (_event === 'INITIAL_SESSION' && !session) {
+        console.log('🔐 Ignoring INITIAL_SESSION without session');
+        return;
+      }
+      // On SIGNED_IN after OAuth, force a fresh session fetch (handles race)
+      if (_event === 'SIGNED_IN') {
+        const fresh = await supabase.auth.getSession();
+        if (fresh.data.session) {
+          session = fresh.data.session; // overwrite with fresh
+          console.log('🔐 Refreshed session after SIGNED_IN');
+        }
+      }
       setUser(session?.user || null);
       if (session?.user) {
         try {
@@ -113,8 +126,8 @@ export default function App() {
         } catch (e) {
           console.warn("Failed to load user state (auth change):", e.message);
         }
-      } else {
-        // Signed out: clear all state
+      } else if (_event === 'SIGNED_OUT') {
+        // True sign-out
         console.log('🔐 User signed out, clearing state');
         setSavedUserState(null);
         setShowResumeBanner(false);
