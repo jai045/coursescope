@@ -63,6 +63,8 @@ export default function AuthModal({ isOpen, mode = "login", onClose, onSuccess, 
     setError(null);
     try {
       console.log('[AuthModal] Starting OAuth sign-in', { provider, redirectTo: window.location.origin });
+      // Mark attempt for post-redirect diagnostics
+      localStorage.setItem('oauth_attempt', provider + ':' + Date.now());
       const { error } = await supabase.auth.signInWithOAuth({ provider, options: { redirectTo: window.location.origin } });
       if (error) throw error;
       console.log('[AuthModal] OAuth redirect initiated');

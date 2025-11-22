@@ -64,6 +64,15 @@ export default function App() {
       if (urlHasTokens) {
         console.log('[Auth Debug] URL contains tokens, ensuring session capture');
       }
+      const oauthAttempt = localStorage.getItem('oauth_attempt');
+      if (oauthAttempt) {
+        console.log('[Auth Debug] Detected prior OAuth attempt flag:', oauthAttempt);
+        // If no tokens and oauth attempt older than 10s, hint misconfiguration
+        const attemptTs = parseInt(oauthAttempt.split(':')[1], 10);
+        if (!urlHasTokens && Date.now() - attemptTs > 10000) {
+          console.warn('[Auth Debug] OAuth attempt without tokens. Verify provider callback & Supabase settings.');
+        }
+      }
       const { data: { session } } = await supabase.auth.getSession();
       console.log('[Auth Debug] Initial session after mount:', session ? 'present' : 'null');
     })();
