@@ -173,6 +173,7 @@ export const GradeDistributionModal = ({ course, open, onClose }) => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [selectedDistribution, setSelectedDistribution] = useState(null); // Store selected {semester, instructor, index}
+  const [showDetailView, setShowDetailView] = useState(false); // Control which view to show
 
   // Helper function to format instructor name
   const formatInstructorName = (instructor) => {
@@ -186,6 +187,7 @@ export const GradeDistributionModal = ({ course, open, onClose }) => {
     if (open && course) {
       fetchGradeData();
       setSelectedDistribution(null); // Reset when modal opens
+      setShowDetailView(false); // Reset to semester selection view
     }
   }, [open, course]);
 
@@ -241,11 +243,7 @@ export const GradeDistributionModal = ({ course, open, onClose }) => {
 
   const getDisplayData = () => {
     if (!selectedDistribution) {
-      return {
-        title: "Average Across All Data",
-        data: gradeData?.average,
-        subtitle: gradeData?.average ? `Based on ${gradeData.average.semesters_count} semester${gradeData.average.semesters_count !== 1 ? 's' : ''} (${gradeData.average.total_students} total students)` : null
-      };
+      return null;
     }
 
     const dist = gradeData.distributions[selectedDistribution.index];
@@ -270,7 +268,23 @@ export const GradeDistributionModal = ({ course, open, onClose }) => {
     };
   };
 
-  const displayData = gradeData && gradeData.has_data ? getDisplayData() : null;
+  const displayData = gradeData && gradeData.has_data && selectedDistribution ? getDisplayData() : null;
+
+  // Handle professor selection - show detail view
+  const handleProfessorSelect = (dist) => {
+    setSelectedDistribution({
+      semester: dist.semester,
+      instructor: dist.instructor,
+      index: dist.index
+    });
+    setShowDetailView(true);
+  };
+
+  // Handle back button - return to semester selection
+  const handleBack = () => {
+    setShowDetailView(false);
+    setSelectedDistribution(null);
+  };
 
   // Get underline color based on course level
   const getUnderlineColorForGrades = (level) => {
@@ -330,150 +344,169 @@ export const GradeDistributionModal = ({ course, open, onClose }) => {
           )}
 
           {!loading && !error && gradeData && gradeData.has_data && (
-            <div className="flex flex-col gap-6 h-full overflow-y-auto">
-              {/* Top Panel: Semester Selection */}
-              <div className="bg-white border border-gray-200 rounded-xl shadow-sm p-4">
-                <h3 className="text-sm font-semibold text-gray-800 mb-4">Select Semester & Instructor</h3>
-                <div className="space-y-4">
-                {/* Overall Average Button */}
-                <motion.button
-                  onClick={() => setSelectedDistribution(null)}
-                  className={`w-full px-4 py-3 rounded-lg text-sm font-medium transition-all ${
-                    selectedDistribution === null
-                      ? "bg-black text-white shadow-lg"
-                      : "bg-gray-100 text-gray-700 hover:bg-gray-200"
-                  }`}
-                  whileHover={{ scale: 1.02 }}
-                  whileTap={{ scale: 0.98 }}
-                >
-                  📊 Overall Average
-                </motion.button>
-
-                {/* Semester-based Selection */}
-                <div className="space-y-4">
-                  {Object.entries(getBySemester()).map(([semester, distributions], semesterIdx) => (
-                    <div key={semester} className="space-y-2">
-                      <h3 className="text-sm font-semibold text-gray-700 px-1">
-                        {semester}
-                      </h3>
-                      <div className="flex flex-wrap gap-2">
-                      {distributions.map((dist, distIdx) => {
-                        const isSelected = 
-                          selectedDistribution?.semester === dist.semester &&
-                          selectedDistribution?.instructor === dist.instructor &&
-                          selectedDistribution?.index === dist.index;
-                        
-                        return (
-                          <motion.button
-                            key={distIdx}
-                            onClick={() => setSelectedDistribution({
-                              semester: dist.semester,
-                              instructor: dist.instructor,
-                              index: dist.index
-                            })}
-                            className={`px-3 py-1.5 rounded-full text-xs font-medium transition-all ${
-                              isSelected
-                                ? "bg-rose-500 text-white shadow-md"
-                                : "bg-rose-50 text-rose-700 border border-rose-200 hover:bg-rose-100"
-                            }`}
-                            whileHover={{ scale: 1.05, y: -2 }}
-                            whileTap={{ scale: 0.95 }}
-                            initial={{ opacity: 0, y: 10 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            transition={{ delay: semesterIdx * 0.05 + distIdx * 0.02 }}
-                          >
-                            Instructor: {dist.instructor}
-                          </motion.button>
-                        );
-                      })}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-                </div>
-              </div>
-
-              {/* Bottom Panel: Grade Distribution Chart */}
-              <div className="bg-white border border-gray-200 rounded-xl shadow-sm p-6">
-                {displayData && (
+            <AnimatePresence mode="wait">
+              {!showDetailView ? (
+                // Semester & Professor Selection View
                 <motion.div
-                  className="space-y-3 w-full"
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  transition={{ delay: 0.2 }}
+                  key="semester-selection"
+                  initial={{ opacity: 0, x: -20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: -20 }}
+                  transition={{ duration: 0.3 }}
+                  className="space-y-4"
                 >
-                  <div>
-                    <h4 className="font-semibold text-gray-900">{displayData.title}</h4>
-                    {displayData.subtitle && (
-                      <p className="text-xs text-gray-600 mt-0.5">{displayData.subtitle}</p>
-                    )}
+                  <div className="bg-gray-50 border border-gray-200 rounded-xl p-4">
+                    <h3 className="text-sm font-semibold text-gray-800 mb-2">
+                      📅 Select Semester & Professor
+                    </h3>
+                    <p className="text-xs text-gray-600">
+                      Choose a specific professor from a semester to view their grade distribution
+                    </p>
                   </div>
 
-                  <div className="space-y-2 bg-gray-50 rounded-xl p-4">
-                    <GradeBar
-                      label="A"
-                      percentage={displayData.data.percentages.A}
-                      count={displayData.data.grades.A}
-                      color="bg-green-500"
-                      delay={0}
-                    />
-                    <GradeBar
-                      label="B"
-                      percentage={displayData.data.percentages.B}
-                      count={displayData.data.grades.B}
-                      color="bg-lime-500"
-                      delay={0.1}
-                    />
-                    <GradeBar
-                      label="C"
-                      percentage={displayData.data.percentages.C}
-                      count={displayData.data.grades.C}
-                      color="bg-yellow-500"
-                      delay={0.2}
-                    />
-                    <GradeBar
-                      label="D"
-                      percentage={displayData.data.percentages.D}
-                      count={displayData.data.grades.D}
-                      color="bg-orange-500"
-                      delay={0.3}
-                    />
-                    <GradeBar
-                      label="F"
-                      percentage={displayData.data.percentages.F}
-                      count={displayData.data.grades.F}
-                      color="bg-red-500"
-                      delay={0.4}
-                    />
-                    {displayData.data.grades.W > 0 && (
-                      <GradeBar
-                        label="W"
-                        percentage={displayData.data.percentages.W}
-                        count={displayData.data.grades.W}
-                        color="bg-gray-400"
-                        delay={0.5}
-                      />
-                    )}
-                  </div>
-
-                  {/* Summary Stats */}
-                  <div className="flex gap-2 flex-wrap">
-                    <Pill>
-                      A/B Rate: {(displayData.data.percentages.A + displayData.data.percentages.B).toFixed(1)}%
-                    </Pill>
-                    <Pill>
-                      Pass Rate: {(100 - displayData.data.percentages.F - displayData.data.percentages.W).toFixed(1)}%
-                    </Pill>
-                    {displayData.data.grades.W > 0 && (
-                      <Pill>
-                        Withdrawal: {displayData.data.percentages.W}%
-                      </Pill>
-                    )}
+                  <div className="space-y-4 max-h-96 overflow-y-auto">
+                    {Object.entries(getBySemester()).map(([semester, distributions], semesterIdx) => (
+                      <div key={semester} className="bg-white border border-gray-200 rounded-xl p-4 shadow-sm">
+                        <h3 className="text-base font-bold text-gray-900 mb-3 flex items-center gap-2">
+                          <span className="text-lg">📚</span>
+                          {semester}
+                        </h3>
+                        <div className="space-y-2">
+                          {distributions.map((dist, distIdx) => (
+                            <motion.button
+                              key={distIdx}
+                              onClick={() => handleProfessorSelect(dist)}
+                              className="w-full px-4 py-3 rounded-lg text-left transition-all bg-gray-50 border border-gray-200 hover:bg-blue-50 hover:border-blue-300 hover:shadow-md"
+                              whileHover={{ scale: 1.02, x: 4 }}
+                              whileTap={{ scale: 0.98 }}
+                              initial={{ opacity: 0, y: 10 }}
+                              animate={{ opacity: 1, y: 0 }}
+                              transition={{ delay: semesterIdx * 0.05 + distIdx * 0.02 }}
+                            >
+                              <div className="flex items-center justify-between">
+                                <div className="flex items-center gap-3">
+                                  <span className="text-2xl">👤</span>
+                                  <div>
+                                    <p className="font-semibold text-gray-900">{dist.instructor}</p>
+                                    <p className="text-xs text-gray-600">{dist.total_students} students</p>
+                                  </div>
+                                </div>
+                                <span className="text-gray-400">→</span>
+                              </div>
+                            </motion.button>
+                          ))}
+                        </div>
+                      </div>
+                    ))}
                   </div>
                 </motion.div>
-                )}
-              </div>
-            </div>
+              ) : (
+                // Grade Distribution Detail View
+                <motion.div
+                  key="grade-detail"
+                  initial={{ opacity: 0, x: 20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: 20 }}
+                  transition={{ duration: 0.3 }}
+                  className="space-y-4"
+                >
+                  {/* Back Button */}
+                  <motion.button
+                    onClick={handleBack}
+                    className="px-4 py-2 rounded-lg bg-gray-100 hover:bg-gray-200 text-gray-700 font-medium text-sm flex items-center gap-2 transition-colors"
+                    whileHover={{ x: -4 }}
+                    whileTap={{ scale: 0.95 }}
+                  >
+                    <span>←</span>
+                    <span>Back to Semester Selection</span>
+                  </motion.button>
+
+                  {/* Grade Distribution Display */}
+                  {displayData && (
+                    <div className="bg-white border border-gray-200 rounded-xl shadow-sm p-6">
+                      <motion.div
+                        className="space-y-4 w-full"
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        transition={{ delay: 0.2 }}
+                      >
+                        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                          <h4 className="font-bold text-gray-900 text-lg">{displayData.title}</h4>
+                          <p className="text-sm font-semibold text-blue-700 mt-1">
+                            Professor: {displayData.instructor}
+                          </p>
+                          {displayData.subtitle && (
+                            <p className="text-xs text-gray-600 mt-1">{displayData.subtitle}</p>
+                          )}
+                        </div>
+
+                        <div className="space-y-2 bg-gray-50 rounded-xl p-4">
+                          <GradeBar
+                            label="A"
+                            percentage={displayData.data.percentages.A}
+                            count={displayData.data.grades.A}
+                            color="bg-green-500"
+                            delay={0}
+                          />
+                          <GradeBar
+                            label="B"
+                            percentage={displayData.data.percentages.B}
+                            count={displayData.data.grades.B}
+                            color="bg-lime-500"
+                            delay={0.1}
+                          />
+                          <GradeBar
+                            label="C"
+                            percentage={displayData.data.percentages.C}
+                            count={displayData.data.grades.C}
+                            color="bg-yellow-500"
+                            delay={0.2}
+                          />
+                          <GradeBar
+                            label="D"
+                            percentage={displayData.data.percentages.D}
+                            count={displayData.data.grades.D}
+                            color="bg-orange-500"
+                            delay={0.3}
+                          />
+                          <GradeBar
+                            label="F"
+                            percentage={displayData.data.percentages.F}
+                            count={displayData.data.grades.F}
+                            color="bg-red-500"
+                            delay={0.4}
+                          />
+                          {displayData.data.grades.W > 0 && (
+                            <GradeBar
+                              label="W"
+                              percentage={displayData.data.percentages.W}
+                              count={displayData.data.grades.W}
+                              color="bg-gray-400"
+                              delay={0.5}
+                            />
+                          )}
+                        </div>
+
+                        {/* Summary Stats */}
+                        <div className="flex gap-2 flex-wrap">
+                          <Pill>
+                            A/B Rate: {(displayData.data.percentages.A + displayData.data.percentages.B).toFixed(1)}%
+                          </Pill>
+                          <Pill>
+                            Pass Rate: {(100 - displayData.data.percentages.F - displayData.data.percentages.W).toFixed(1)}%
+                          </Pill>
+                          {displayData.data.grades.W > 0 && (
+                            <Pill>
+                              Withdrawal: {displayData.data.percentages.W}%
+                            </Pill>
+                          )}
+                        </div>
+                      </motion.div>
+                    </div>
+                  )}
+                </motion.div>
+              )}
+            </AnimatePresence>
           )}
         </>
       )}
