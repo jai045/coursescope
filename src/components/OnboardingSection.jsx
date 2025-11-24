@@ -18,7 +18,6 @@ const OnboardingSection = ({
 }) => {
   const [completed, setCompleted] = useState(completedCourses || new Set());
   const [searchQuery, setSearchQuery] = useState("");
-  const [skipValidation, setSkipValidation] = useState(false);
   const [visibleCount, setVisibleCount] = useState(50); // Incremental loading
   const isCollapsed = externalCollapsed ?? (completedCourses !== null);
 
@@ -83,48 +82,9 @@ const OnboardingSection = ({
     });
   };
 
-  // Check for prerequisite violations
-  // Handles grouped prerequisite logic (AND between groups, OR within groups)
-  const getPrerequisiteViolations = () => {
-    const violations = [];
-    const completedArray = Array.from(completed);
-
-    completedArray.forEach(courseCode => {
-      const course = courses.find(c => c.code === courseCode);
-      if (course && course.prerequisiteGroups && course.prerequisiteGroups.length > 0) {
-        const missingGroups = [];
-
-        // Check each group - ALL groups must be satisfied (AND between groups)
-        for (const group of course.prerequisiteGroups) {
-          // Within each group, at least ONE must be completed (OR within group)
-          // Check both the current selection AND excluded courses (e.g., already completed courses)
-          const groupMet = group.some(prereq => completed.has(prereq) || excludeCourses.has(prereq));
-          if (!groupMet) {
-            missingGroups.push(group);
-          }
-        }
-
-        if (missingGroups.length > 0) {
-          violations.push({
-            course: courseCode,
-            missingGroups: missingGroups,
-            prerequisitesFormatted: course.prerequisitesFormatted || 'Unknown'
-          });
-        }
-      }
-    });
-
-    return violations;
-  };
-
-  const violations = getPrerequisiteViolations();
-  const hasViolations = violations.length > 0;
-
   const handleConfirm = () => {
-    if (!hasViolations || skipValidation) {
-      onComplete(completed);
-      if (setExternalCollapsed) setExternalCollapsed(true);
-    }
+    onComplete(completed);
+    if (setExternalCollapsed) setExternalCollapsed(true);
   };
 
   const handleEdit = () => {
@@ -174,86 +134,11 @@ const OnboardingSection = ({
             whileHover={{ scale: 1.05 }}
             whileTap={{ scale: 0.95 }}
             onClick={isCollapsed ? handleEdit : handleConfirm}
-            animate={
-              !isCollapsed && hasViolations && !skipValidation
-                ? {
-                    x: [0, -10, 10, -10, 10, 0],
-                    backgroundColor: ["#f59e0b", "#d97706", "#f59e0b"]
-                  }
-                : {
-                    backgroundColor: "#000000"
-                  }
-            }
-            transition={
-              !isCollapsed && hasViolations && !skipValidation
-                ? {
-                    x: { duration: 0.5, repeat: Infinity, repeatDelay: 1 },
-                    backgroundColor: { duration: 1, repeat: Infinity }
-                  }
-                : {}
-            }
-            className={`px-4 py-2 text-white rounded-xl hover:opacity-90 ${
-              !isCollapsed && hasViolations && !skipValidation ? "cursor-not-allowed" : ""
-            }`}
+            className="px-4 py-2 bg-black text-white rounded-xl hover:opacity-90"
           >
             {isCollapsed ? "Edit" : buttonText}
           </motion.button>
         </div>
-
-        <AnimatePresence>
-          {!isCollapsed && hasViolations && (
-            <motion.div
-              initial={{ opacity: 0, y: -10 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -10 }}
-              transition={{ duration: 0.3 }}
-              className="mt-3 p-3 bg-yellow-50 border border-yellow-300 rounded-xl"
-            >
-              <div className="text-sm text-yellow-800">
-                <p className="font-semibold mb-2">⚠️ Missing Prerequisites:</p>
-                <div className="space-y-2">
-                  {violations.map((violation, idx) => (
-                    <div key={idx} className="text-xs">
-                      <div className="font-medium mb-1">{violation.course}</div>
-                      <div className="pl-2 space-y-1">
-                        {violation.missingGroups.map((group, groupIdx) => (
-                          <div key={groupIdx} className="flex flex-wrap items-center gap-1">
-                            <span className="text-yellow-700">Missing:</span>
-                            {group.length > 1 && <span className="text-yellow-700">(</span>}
-                            {group.map((prereq, prereqIdx) => (
-                              <span key={prereqIdx} className="inline-flex items-center gap-1">
-                                <span className="px-1.5 py-0.5 bg-yellow-100 border border-yellow-400 rounded text-yellow-900 font-medium">
-                                  {prereq}
-                                </span>
-                                {prereqIdx < group.length - 1 && (
-                                  <span className="text-yellow-700">or</span>
-                                )}
-                              </span>
-                            ))}
-                            {group.length > 1 && <span className="text-yellow-700">)</span>}
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-
-                {/* Skip Validation Checkbox */}
-                <label className="flex items-center gap-2 mt-3 pt-3 border-t border-yellow-400 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={skipValidation}
-                    onChange={(e) => setSkipValidation(e.target.checked)}
-                    className="h-4 w-4 rounded border-yellow-400 text-yellow-600 focus:ring-yellow-500"
-                  />
-                  <span className="text-xs text-yellow-800 font-medium">
-                    I understand, continue anyway
-                  </span>
-                </label>
-              </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
 
         <AnimatePresence>
           {!isCollapsed && (
