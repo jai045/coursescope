@@ -19,6 +19,7 @@ const OnboardingSection = ({
   const [completed, setCompleted] = useState(completedCourses || new Set());
   const [searchQuery, setSearchQuery] = useState("");
   const [skipValidation, setSkipValidation] = useState(false);
+  const [visibleCount, setVisibleCount] = useState(50); // Incremental loading
   const isCollapsed = externalCollapsed ?? (completedCourses !== null);
 
   // Update internal state when completedCourses prop changes
@@ -28,6 +29,11 @@ const OnboardingSection = ({
       setCompleted(completedCourses);
     }
   }, [completedCourses, title]);
+
+  // Reset visible count when search changes
+  useEffect(() => {
+    setVisibleCount(50);
+  }, [searchQuery]);
 
   // Filter courses based on prerequisites if enforcePrerequisites is true
   const eligibleCourses = useMemo(() => {
@@ -321,6 +327,7 @@ const OnboardingSection = ({
                       const numB = parseInt(b.code.match(/\d+/)?.[0] || '0');
                       return numA - numB;
                     })
+                    .slice(0, visibleCount)
                     .map((course) => (
                     <label
                       key={course.id}
@@ -349,6 +356,18 @@ const OnboardingSection = ({
                     <div className="text-center py-8 text-gray-500 text-sm">
                       No courses found matching "{searchQuery}"
                     </div>
+                  )}
+
+                  {/* Load More Button */}
+                  {visibleCount < availableCourses.length && (
+                    <motion.button
+                      onClick={() => setVisibleCount(prev => prev + 50)}
+                      whileHover={{ scale: 1.02 }}
+                      whileTap={{ scale: 0.98 }}
+                      className="w-full mt-2 p-3 rounded-xl border-2 border-dashed border-gray-300 hover:border-gray-400 hover:bg-gray-50 text-sm font-medium text-gray-600 hover:text-gray-900 transition-colors"
+                    >
+                      Load More ({availableCourses.length - visibleCount} remaining)
+                    </motion.button>
                   )}
                 </div>
 

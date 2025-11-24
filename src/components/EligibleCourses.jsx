@@ -8,7 +8,7 @@ const EligibleCourses = ({ courses, allCourses, requiredCourses, electiveCourses
   const [electivesExpanded, setElectivesExpanded] = useState(false);
   // When user skips planning, open the "All Courses" section by default
   const [otherExpanded, setOtherExpanded] = useState(skippedPlanning);
-  const [showAllOther, setShowAllOther] = useState(false);
+  const [visibleCount, setVisibleCount] = useState(50);
 
   // Create sets of course codes for quick lookup (memoized)
   const requiredCourseCodes = useMemo(() => new Set(requiredCourses.map(c => c.code)), [requiredCourses]);
@@ -32,14 +32,11 @@ const EligibleCourses = ({ courses, allCourses, requiredCourses, electiveCourses
   // Use all available courses for the third section (not filtered by prerequisites)
   const allAvailableCourses = allCourses || [];
 
-  // Limit initial render for performance, show more on demand
-  const INITIAL_LIMIT = 50;
-
   const renderSection = (title, courses, expanded, setExpanded, allowPagination = false) => {
     if (courses.length === 0) return null;
 
-    const shouldLimit = allowPagination && !showAllOther && courses.length > INITIAL_LIMIT;
-    const displayedCourses = shouldLimit ? courses.slice(0, INITIAL_LIMIT) : courses;
+    const displayedCourses = allowPagination ? courses.slice(0, visibleCount) : courses;
+    const hasMore = allowPagination && visibleCount < courses.length;
 
     return (
       <div className="rounded-xl border bg-white shadow-sm overflow-hidden">
@@ -74,14 +71,16 @@ const EligibleCourses = ({ courses, allCourses, requiredCourses, electiveCourses
                 />
               ))}
             </div>
-            {shouldLimit && (
+            {hasMore && (
               <div className="p-4 pt-0 text-center">
-                <button
-                  onClick={() => setShowAllOther(true)}
+                <motion.button
+                  onClick={() => setVisibleCount(prev => prev + 50)}
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.98 }}
                   className="px-4 py-2 bg-gray-100 hover:bg-gray-200 rounded-xl text-sm font-medium transition-colors"
                 >
-                  Show {courses.length - INITIAL_LIMIT} more courses
-                </button>
+                  Load More ({courses.length - visibleCount} remaining)
+                </motion.button>
               </div>
             )}
           </>
